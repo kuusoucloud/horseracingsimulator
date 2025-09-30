@@ -274,7 +274,11 @@ export default function RaceController({
             });
             
             // Add to finished set to prevent re-adding
-            setFinishedHorsesRef(prev => new Set([...prev, horse.id]));
+            setFinishedHorsesRef(prev => {
+              const newSet = new Set(prev);
+              newSet.add(horse.id);
+              return newSet;
+            });
             
             console.log(`${horse.name} finished at ${preciseFinishTime.toFixed(6)}s (previous: ${previousPosition.toFixed(1)}m, new: ${newPosition.toFixed(1)}m, fraction: ${fractionToFinish.toFixed(4)})`);
             
