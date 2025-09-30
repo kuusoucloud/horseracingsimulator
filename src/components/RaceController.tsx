@@ -1,3 +1,13 @@
+declare global {
+  interface Window {
+    finishLineDetector?: {
+      recordFinish: (horseId: string, horseName: string, finishTime: number) => void;
+      reset?: () => void;
+    };
+    raceControllerVisualFinish?: (horseId: string, finishTime: number) => void;
+  }
+}
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
