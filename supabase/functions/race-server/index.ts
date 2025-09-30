@@ -75,11 +75,145 @@ const supabaseClient = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 )
 
+// ELO Rating System Constants
+const STARTING_ELO = 500;
+const K_FACTOR_PODIUM = 192; // Increased K-factor for podium finishers (1st, 2nd, 3rd)
+const K_FACTOR_OTHERS = 32; // Standard K-factor for others
+
+// Update ELO ratings after a race
+async function updateHorseEloRatings(raceResults: any[]) {
+  console.log('🏁 Updating ELO ratings for race results:', raceResults.map(r => ({ name: r.name, placement: r.placement })));
+  
+  try {
+    // Get current ELO ratings for all horses
+    const horseNames = raceResults.map(r => r.name);
+    const { data: existingHorses } = await supabaseClient
+      .from('horses')
+      .select('name, elo, total_races, wins, recent_form')
+      .in('name', horseNames);
+    
+    const existingHorsesMap = new Map(existingHorses?.map(h => [h.name, h]) || []);
+    
+    // Initialize new horses with starting ELO
+    const newHorses = [];
+    for (const result of raceResults) {
+      if (!existingHorsesMap.has(result.name)) {
+        newHorses.push({
+          name: result.name,
+          elo: STARTING_ELO,
+          total_races: 0,
+          wins: 0,
+          recent_form: []
+        });
+        console.log(`🆕 New horse ${result.name} initialized with ELO: ${STARTING_ELO}`);
+      }
+    }
+    
+    // Insert new horses
+    if (newHorses.length > 0) {
+      await supabaseClient.from('horses').insert(newHorses);
+      // Add to existing map
+      newHorses.forEach(h => existingHorsesMap.set(h.name, h));
+    }
+    
+    // Calculate ELO changes for each pair of horses
+    const updatedRatings = new Map();
+    
+    // Initialize with current ratings
+    raceResults.forEach(result => {
+      const horse = existingHorsesMap.get(result.name);
+      updatedRatings.set(result.name, horse?.elo || STARTING_ELO);
+    });
+    
+    // Calculate ELO changes for each pair
+    for (let i = 0; i < raceResults.length; i++) {
+      for (let j = i + 1; j < raceResults.length; j++) {
+        const horse1 = raceResults[i];
+        const horse2 = raceResults[j];
+        
+        const rating1 = updatedRatings.get(horse1.name);
+        const rating2 = updatedRatings.get(horse2.name);
+        
+        // Expected scores based on ELO difference
+        const expected1 = 1 / (1 + Math.pow(10, (rating2 - rating1) / 400));
+        const expected2 = 1 / (1 + Math.pow(10, (rating1 - rating2) / 400));
+        
+        // Actual scores (horse1 finished ahead of horse2)
+        const actual1 = 1;
+        const actual2 = 0;
+        
+        // Determine K-factors based on podium placement
+        const k1 = horse1.placement <= 3 ? K_FACTOR_PODIUM : K_FACTOR_OTHERS;
+        const k2 = horse2.placement <= 3 ? K_FACTOR_PODIUM : K_FACTOR_OTHERS;
+        
+        // Calculate new ratings
+        const newRating1 = rating1 + k1 * (actual1 - expected1);
+        const newRating2 = rating2 + k2 * (actual2 - expected2);
+        
+        updatedRatings.set(horse1.name, Math.max(100, newRating1)); // Minimum ELO of 100
+        updatedRatings.set(horse2.name, Math.max(100, newRating2));
+      }
+    }
+    
+    // Update database with new ratings and stats
+    const updates = [];
+    for (const result of raceResults) {
+      const horse = existingHorsesMap.get(result.name);
+      const oldRating = horse?.elo || STARTING_ELO;
+      const newRating = updatedRatings.get(result.name);
+      const change = Math.round(newRating - oldRating);
+      const kFactor = result.placement <= 3 ? K_FACTOR_PODIUM : K_FACTOR_OTHERS;
+      
+      // Update recent form (keep last 5 races)
+      const recentForm = [...(horse?.recent_form || [])];
+      recentForm.unshift(result.placement);
+      if (recentForm.length > 5) {
+        recentForm.length = 5;
+      }
+      
+      updates.push({
+        name: result.name,
+        elo: Math.round(newRating),
+        total_races: (horse?.total_races || 0) + 1,
+        wins: (horse?.wins || 0) + (result.placement === 1 ? 1 : 0),
+        recent_form: recentForm,
+        updated_at: new Date().toISOString()
+      });
+      
+      console.log(`📊 ${result.name} (${result.placement}${getOrdinalSuffix(result.placement)}): ${Math.round(oldRating)} → ${Math.round(newRating)} (${change > 0 ? '+' : ''}${change}) [K=${kFactor}]`);
+    }
+    
+    // Batch update all horses
+    for (const update of updates) {
+      await supabaseClient
+        .from('horses')
+        .upsert(update, { onConflict: 'name' });
+    }
+    
+    console.log('💾 ELO ratings updated and saved to database!');
+    return updates;
+    
+  } catch (error) {
+    console.error('Error updating ELO ratings:', error);
+    return [];
+  }
+}
+
+// Helper function to get ordinal suffix
+function getOrdinalSuffix(n: number): string {
+  const suffixes = ['th', 'st', 'nd', 'rd'];
+  const remainder = n % 100;
+  if (remainder >= 11 && remainder <= 13) {
+    return suffixes[0];
+  }
+  return suffixes[n % 10] || suffixes[0];
+}
+
 async function startNewRace() {
   console.log('🏇 Starting new race...')
   
-  // Generate new horses
-  const horses = generateRandomHorses(8)
+  // Generate new horses with database ELO ratings
+  const horses = await generateRandomHorsesWithELO(8)
   
   // Generate weather for this race (server-side)
   const weather = generateWeatherConditions()
@@ -118,7 +252,228 @@ async function startNewRace() {
   
   console.log('✅ New race created with weather:', weather.timeOfDay, weather.weather)
   console.log('🌤️ Weather conditions stored:', data.weather_conditions)
+  console.log('🏇 Horses with ELO ratings:', horses.map(h => ({ name: h.name, elo: h.elo })))
   return data
+}
+
+// Generate random horses with database ELO ratings
+async function generateRandomHorsesWithELO(count: number = 8): Promise<any[]> {
+  try {
+    // Get all horses from database
+    const { data: dbHorses } = await supabaseClient
+      .from('horses')
+      .select('name, elo, total_races, wins, recent_form')
+      .order('elo', { ascending: false })
+    
+    let availableHorses = dbHorses || []
+    
+    // If we don't have enough horses in database, create some from the static list
+    if (availableHorses.length < count) {
+      console.log(`🆕 Need more horses in database (${availableHorses.length}/${count}), adding from static list...`)
+      
+      // Import the static horse database
+      const { generateRandomHorses } = await import('./horses.ts')
+      const staticHorses = generateRandomHorses(count - availableHorses.length)
+      
+      // Add missing horses to database
+      const newHorses = staticHorses.map(horse => ({
+        name: horse.name,
+        elo: STARTING_ELO,
+        total_races: 0,
+        wins: 0,
+        recent_form: []
+      }))
+      
+      await supabaseClient.from('horses').insert(newHorses)
+      
+      // Add to available horses
+      availableHorses = [...availableHorses, ...newHorses]
+    }
+    
+    // Select horses using weighted selection based on ELO
+    const selectedHorses = selectHorsesWeighted(availableHorses, count)
+    
+    // Calculate odds based on ELO ratings
+    const oddsData = calculateOddsFromELO(selectedHorses)
+    
+    return selectedHorses.map((horse, index) => {
+      const odds = oddsData.find(o => o.name === horse.name)?.odds || 5.0
+      
+      // Generate attributes based on ELO
+      const baseSpeed = Math.max(60, Math.min(95, 60 + (horse.elo - 500) / 20))
+      const baseStamina = Math.max(60, Math.min(95, 60 + (horse.elo - 500) / 25))
+      const baseAcceleration = Math.max(60, Math.min(95, 60 + (horse.elo - 500) / 22))
+      
+      // Add some randomness
+      const speed = Math.round(baseSpeed + (Math.random() - 0.5) * 10)
+      const stamina = Math.round(baseStamina + (Math.random() - 0.5) * 10)
+      const acceleration = Math.round(baseAcceleration + (Math.random() - 0.5) * 10)
+      
+      return {
+        id: `horse-${index + 1}`,
+        name: horse.name,
+        lane: index + 1,
+        elo: horse.elo,
+        odds: odds,
+        speed: Math.max(60, Math.min(95, speed)),
+        stamina: Math.max(60, Math.min(95, stamina)),
+        acceleration: Math.max(60, Math.min(95, acceleration)),
+        color: getHorseColor(horse.name),
+        sprintStartPercent: 40 + Math.random() * 35,
+        total_races: horse.total_races || 0,
+        wins: horse.wins || 0,
+        recent_form: horse.recent_form || []
+      }
+    })
+    
+  } catch (error) {
+    console.error('Error generating horses with ELO:', error)
+    // Fallback to static generation
+    const { generateRandomHorses } = await import('./horses.ts')
+    return generateRandomHorses(count)
+  }
+}
+
+// Weighted horse selection based on ELO tiers
+function selectHorsesWeighted(horses: any[], count: number): any[] {
+  const weightedHorses = horses.map(horse => {
+    let weight: number
+    
+    if (horse.elo >= 2200) {
+      weight = 1 // Mythical: Extremely rare
+    } else if (horse.elo >= 2000) {
+      weight = 2 // Legendary: Very rare
+    } else if (horse.elo >= 1900) {
+      weight = 3 // Legendary: Rare
+    } else if (horse.elo >= 1800) {
+      weight = 5 // Champion: Uncommon
+    } else if (horse.elo >= 1700) {
+      weight = 8 // Elite: Less common
+    } else if (horse.elo >= 1600) {
+      weight = 12 // Expert: Moderate
+    } else if (horse.elo >= 1400) {
+      weight = 20 // Competitive: Common
+    } else if (horse.elo >= 1200) {
+      weight = 30 // Underdog: Very common
+    } else if (horse.elo >= 1000) {
+      weight = 25 // Long shot: Common
+    } else {
+      weight = 15 // Extreme long shot: Less common
+    }
+    
+    return { horse, weight }
+  })
+  
+  // Create weighted selection pool
+  const selectionPool: any[] = []
+  weightedHorses.forEach(({ horse, weight }) => {
+    for (let i = 0; i < weight; i++) {
+      selectionPool.push(horse)
+    }
+  })
+  
+  // Randomly select horses from the weighted pool
+  const selectedHorses: any[] = []
+  const usedHorses = new Set<string>()
+  
+  while (selectedHorses.length < count && selectedHorses.length < horses.length) {
+    const randomIndex = Math.floor(Math.random() * selectionPool.length)
+    const selectedHorse = selectionPool[randomIndex]
+    
+    // Ensure no duplicates
+    if (!usedHorses.has(selectedHorse.name)) {
+      selectedHorses.push(selectedHorse)
+      usedHorses.add(selectedHorse.name)
+    }
+  }
+  
+  return selectedHorses
+}
+
+// Calculate odds based on ELO ratings
+function calculateOddsFromELO(horses: any[]): { name: string; odds: number }[] {
+  // Sort horses by ELO descending
+  const sortedHorses = [...horses].sort((a, b) => b.elo - a.elo)
+  
+  // Calculate relative strength based on ELO differences
+  const probabilities = sortedHorses.map(horse => {
+    let totalStrength = 0
+    let thisHorseStrength = 0
+    
+    sortedHorses.forEach(h => {
+      const strength = Math.pow(10, h.elo / 400) // Chess-like ELO scaling
+      totalStrength += strength
+      if (h.name === horse.name) {
+        thisHorseStrength = strength
+      }
+    })
+    
+    let probability = thisHorseStrength / totalStrength
+    
+    // Apply tier-based multipliers
+    if (horse.elo >= 2000) {
+      probability *= 1.5 // Mythical boost
+    } else if (horse.elo >= 1900) {
+      probability *= 1.3 // Legendary boost
+    } else if (horse.elo >= 1800) {
+      probability *= 1.2 // Champion boost
+    } else if (horse.elo >= 1600) {
+      probability *= 1.1 // Elite boost
+    } else if (horse.elo < 1000) {
+      probability *= 0.7 // Weak penalty
+    } else if (horse.elo < 800) {
+      probability *= 0.5 // Very weak penalty
+    }
+    
+    return { name: horse.name, probability: Math.max(0.005, probability) }
+  })
+  
+  // Normalize probabilities
+  const totalProb = probabilities.reduce((sum, p) => sum + p.probability, 0)
+  const normalizedProbs = probabilities.map(p => ({
+    name: p.name,
+    probability: p.probability / totalProb
+  }))
+  
+  // Convert to odds
+  return normalizedProbs.map(p => {
+    const adjustedProb = p.probability * 0.98
+    let odds = 1 / adjustedProb
+    
+    // Round appropriately
+    if (odds < 1.5) {
+      odds = Math.round(odds * 100) / 100
+    } else if (odds < 5) {
+      odds = Math.round(odds * 20) / 20
+    } else if (odds < 15) {
+      odds = Math.round(odds * 10) / 10
+    } else if (odds < 50) {
+      odds = Math.round(odds * 2) / 2
+    } else {
+      odds = Math.round(odds)
+    }
+    
+    return {
+      name: p.name,
+      odds: Math.max(1.01, odds)
+    }
+  })
+}
+
+// Generate a static color for a horse based on its name
+function getHorseColor(horseName: string): string {
+  const colors = [
+    "#8B4513", "#D2B48C", "#654321", "#2F1B14", "#F5F5DC"
+  ]
+  
+  let hash = 0
+  for (let i = 0; i < horseName.length; i++) {
+    const char = horseName.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash
+  }
+  
+  return colors[Math.abs(hash) % colors.length]
 }
 
 async function updateRaceState() {
@@ -301,6 +656,10 @@ async function updateRaceState() {
         })
         
         updateData.race_results = results
+        
+        // Update ELO ratings after race completion
+        console.log('🏆 Race finished, updating ELO ratings...')
+        await updateHorseEloRatings(results)
         
         // Determine if we should show photo finish (close race) - ORIGINAL THRESHOLD
         const topThree = results.slice(0, 3)

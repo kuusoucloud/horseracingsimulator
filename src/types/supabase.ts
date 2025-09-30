@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      horses: {
+        Row: {
+          created_at: string | null
+          elo: number
+          id: string
+          name: string
+          recent_form: number[]
+          total_races: number
+          updated_at: string | null
+          wins: number
+        }
+        Insert: {
+          created_at?: string | null
+          elo?: number
+          id?: string
+          name: string
+          recent_form?: number[]
+          total_races?: number
+          updated_at?: string | null
+          wins?: number
+        }
+        Update: {
+          created_at?: string | null
+          elo?: number
+          id?: string
+          name?: string
+          recent_form?: number[]
+          total_races?: number
+          updated_at?: string | null
+          wins?: number
+        }
+        Relationships: []
+      }
       race_state: {
         Row: {
           countdown_timer: number | null
