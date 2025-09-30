@@ -1653,7 +1653,7 @@ export default function RaceTrack({
 
               // Calculate lane position using horse's actual lane assignment
               const laneWidth = TRACK_WIDTH / numHorses;
-              const actualLane = horse.lane || index + 1;
+              const actualLane = ('lane' in horse ? horse.lane : null) || index + 1;
               let baseLaneOffset =
                 -TRACK_WIDTH / 2 + (actualLane - 0.5) * laneWidth;
 
