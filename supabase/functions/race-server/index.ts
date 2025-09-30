@@ -260,8 +260,8 @@ async function updateRaceState() {
         const thirdFinishTime = topThree[2]?.finishTime || 0
         const timeDifference = thirdFinishTime - firstFinishTime
         
-        // Show photo finish if top 3 are within 2 seconds of each other
-        if (timeDifference <= 2.0 && topThree.length >= 3) {
+        // Show photo finish if top 3 are within 0.5 seconds of each other
+        if (timeDifference <= 0.5 && topThree.length >= 3) {
           updateData.show_photo_finish = true
           updateData.photo_finish_results = topThree
           console.log('📸 Close race detected - showing photo finish')
