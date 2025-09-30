@@ -253,7 +253,7 @@ export function useRaceSync() {
           try {
             console.log('📡 Calling server timer function...');
             // Call the server-side timer function with correct URL
-            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/race-timer`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/supabase-functions-race-timer`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,

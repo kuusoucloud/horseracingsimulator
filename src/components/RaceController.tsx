@@ -45,14 +45,14 @@ export default function RaceController({
   onVisualFinish,
   preRaceTimer = 0,
   countdownTimer = 0,
-  raceTimer = 0
+  raceTimer: syncedRaceTimer = 0
 }: RaceControllerProps) {
   const [countdown, setCountdown] = useState(0);
   const [isRacing, setIsRacing] = useState(false);
   const [raceProgress, setRaceProgress] = useState<{ [key: string]: number }>({});
   const [raceResults, setRaceResults] = useState<Horse[]>([]);
   const [raceStartTime, setRaceStartTime] = useState<number>(0);
-  const [raceTimer, setRaceTimer] = useState<number>(0);
+  const [localRaceTimer, setLocalRaceTimer] = useState<number>(0);
   const [finishedHorsesRef, setFinishedHorsesRef] = useState<Set<string>>(new Set()); // Track finished horses
   const [visualFinishedHorses, setVisualFinishedHorses] = useState<Set<string>>(new Set()); // Track 3D horses that reached finish line
 
@@ -110,7 +110,7 @@ export default function RaceController({
       setIsRacing(true);
       setCountdown(0);
       setRaceStartTime(performance.now());
-      setRaceTimer(0);
+      setLocalRaceTimer(0);
       setFinishedHorsesRef(new Set());
       setVisualFinishedHorses(new Set());
     } else if (raceState === "pre-race" || raceState === "finished") {
@@ -158,7 +158,7 @@ export default function RaceController({
     const raceInterval = setInterval(() => {
       const currentTime = performance.now();
       const elapsedTime = (currentTime - raceStartTime) / 1000; // Convert to seconds
-      setRaceTimer(elapsedTime);
+      setLocalRaceTimer(elapsedTime);
       
       setRaceProgress(prevProgress => {
         const newProgress = { ...prevProgress };
