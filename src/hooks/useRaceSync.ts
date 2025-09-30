@@ -9,6 +9,9 @@ interface RaceStateRow {
   horses: Horse[];
   race_progress: Record<string, number>;
   pre_race_timer: number;
+  countdown_timer?: number; // Add countdown timer
+  race_timer?: number; // Add race timer
+  race_start_time?: string; // Add race start time
   race_results: Horse[];
   created_at: string;
   updated_at: string;
@@ -242,13 +245,14 @@ export function useRaceSync() {
     const startServerTimer = () => {
       if (!supabase || !syncedData) return;
       
-      // Only start server timer if race is in pre-race state with horses
-      if (syncedData.race_state === 'pre-race' && syncedData.horses?.length > 0) {
-        console.log('🚀 Starting server-side timer management');
+      // Start server timer for any active race state (pre-race, countdown, racing)
+      if (syncedData.horses?.length > 0 && ['pre-race', 'countdown', 'racing'].includes(syncedData.race_state)) {
+        console.log('🚀 Starting server-side timer management for state:', syncedData.race_state);
         
         timerInterval = setInterval(async () => {
           try {
-            // Call the server-side timer function
+            console.log('📡 Calling server timer function...');
+            // Call the server-side timer function with correct URL
             const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/race-timer`, {
               method: 'POST',
               headers: {
@@ -258,13 +262,15 @@ export function useRaceSync() {
             });
 
             if (!response.ok) {
-              console.error('Server timer request failed:', response.status);
+              console.error('❌ Server timer request failed:', response.status, response.statusText);
+              const errorText = await response.text();
+              console.error('Error details:', errorText);
             } else {
               const result = await response.json();
               console.log('⏰ Server timer response:', result);
             }
           } catch (error) {
-            console.error('Error calling server timer:', error);
+            console.error('❌ Error calling server timer:', error);
           }
         }, 1000); // Call server every second
       }

@@ -31,6 +31,8 @@ interface RaceControllerProps {
   autoStartTimer?: number;
   onVisualFinish?: (horseId: string, finishTime: number) => void;
   preRaceTimer?: number;
+  countdownTimer?: number; // Add countdown timer prop
+  raceTimer?: number; // Add race timer prop
 }
 
 export default function RaceController({
@@ -41,7 +43,9 @@ export default function RaceController({
   raceState,
   autoStartTimer = 0,
   onVisualFinish,
-  preRaceTimer = 0
+  preRaceTimer = 0,
+  countdownTimer = 0,
+  raceTimer = 0
 }: RaceControllerProps) {
   const [countdown, setCountdown] = useState(0);
   const [isRacing, setIsRacing] = useState(false);
@@ -99,21 +103,28 @@ export default function RaceController({
     if (raceState === "countdown") {
       setCountdown(10);
       setIsRacing(false);
-      setFinishedHorsesRef(new Set()); // Reset finished horses tracking
-      setVisualFinishedHorses(new Set()); // Reset visual finished horses tracking
+      setFinishedHorsesRef(new Set());
+      setVisualFinishedHorses(new Set());
     } else if (raceState === "racing") {
       console.log("Setting isRacing to true because raceState is racing");
       setIsRacing(true);
       setCountdown(0);
-      setRaceStartTime(performance.now()); // Use high-precision timer
+      setRaceStartTime(performance.now());
       setRaceTimer(0);
-      setFinishedHorsesRef(new Set()); // Reset finished horses tracking
-      setVisualFinishedHorses(new Set()); // Reset visual finished horses tracking
+      setFinishedHorsesRef(new Set());
+      setVisualFinishedHorses(new Set());
     } else if (raceState === "pre-race" || raceState === "finished") {
       setIsRacing(false);
       setCountdown(0);
     }
   }, [raceState]);
+
+  // Update countdown from synced data
+  useEffect(() => {
+    if (raceState === "countdown" && typeof countdownTimer === 'number') {
+      setCountdown(countdownTimer);
+    }
+  }, [countdownTimer, raceState]);
 
   // Countdown effect - transitions to racing when countdown reaches 0
   useEffect(() => {

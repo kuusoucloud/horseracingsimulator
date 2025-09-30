@@ -46,60 +46,85 @@ serve(async (req) => {
       )
     }
 
-    // Only process if race is in pre-race state with timer > 0
+    let updateData: any = {}
+    let message = 'No update needed'
+
+    // Handle PRE-RACE TIMER (10 seconds countdown)
     if (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) {
       const newTimer = raceState.pre_race_timer - 1
-      
-      console.log(`⏰ Server timer update: ${raceState.pre_race_timer} -> ${newTimer}`)
+      console.log(`⏰ Pre-race timer: ${raceState.pre_race_timer} -> ${newTimer}`)
 
-      // Update the timer
-      const { error: updateError } = await supabaseClient
-        .from('race_state')
-        .update({ 
+      if (newTimer > 0) {
+        updateData = { 
           pre_race_timer: newTimer,
-          timer_owner: 'server' // Mark as server-managed
-        })
-        .eq('id', raceState.id)
-
-      if (updateError) {
-        console.error('Error updating timer:', updateError)
-        return new Response(
-          JSON.stringify({ error: 'Failed to update timer' }),
-          { 
-            status: 500, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-
-      return new Response(
-        JSON.stringify({ 
-          message: 'Timer updated', 
-          timer: newTimer,
-          race_state: raceState.race_state
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          timer_owner: 'server'
         }
-      )
+        message = `Pre-race timer updated to ${newTimer}`
+      } else {
+        // Timer reached 0, start countdown phase
+        updateData = { 
+          pre_race_timer: 0,
+          race_state: 'countdown',
+          countdown_timer: 10, // Start 10-second countdown
+          timer_owner: 'server'
+        }
+        message = 'Starting countdown phase'
+      }
+    }
+    // Handle COUNTDOWN TIMER (10 seconds before race starts)
+    else if (raceState.race_state === 'countdown') {
+      const currentCountdown = raceState.countdown_timer || 10
+      const newCountdown = currentCountdown - 1
+      console.log(`⏰ Countdown timer: ${currentCountdown} -> ${newCountdown}`)
+
+      if (newCountdown > 0) {
+        updateData = { 
+          countdown_timer: newCountdown,
+          timer_owner: 'server'
+        }
+        message = `Countdown timer updated to ${newCountdown}`
+      } else {
+        // Countdown finished, start race
+        updateData = { 
+          countdown_timer: 0,
+          race_state: 'racing',
+          race_start_time: new Date().toISOString(),
+          race_timer: 0,
+          timer_owner: 'server'
+        }
+        message = 'Race started!'
+      }
+    }
+    // Handle RACE TIMER (during race)
+    else if (raceState.race_state === 'racing') {
+      const currentRaceTimer = raceState.race_timer || 0
+      const newRaceTimer = currentRaceTimer + 1 // Increment race timer
+      console.log(`⏰ Race timer: ${currentRaceTimer} -> ${newRaceTimer}`)
+
+      updateData = { 
+        race_timer: newRaceTimer,
+        timer_owner: 'server'
+      }
+      message = `Race timer updated to ${newRaceTimer}s`
+
+      // Auto-finish race after 30 seconds if not finished
+      if (newRaceTimer >= 30) {
+        updateData.race_state = 'finished'
+        message = 'Race auto-finished after 30 seconds'
+      }
     }
 
-    // If timer reached 0, start countdown phase
-    if (raceState.race_state === 'pre-race' && raceState.pre_race_timer === 0) {
-      console.log('⏰ Server starting countdown phase')
-      
+    // Apply updates if any
+    if (Object.keys(updateData).length > 0) {
       const { error: updateError } = await supabaseClient
         .from('race_state')
-        .update({ 
-          race_state: 'countdown',
-          timer_owner: 'server'
-        })
+        .update(updateData)
         .eq('id', raceState.id)
 
       if (updateError) {
-        console.error('Error starting countdown:', updateError)
+        console.error('Error updating race state:', updateError)
         return new Response(
-          JSON.stringify({ error: 'Failed to start countdown' }),
+          JSON.stringify({ error: 'Failed to update race state' }),
           { 
             status: 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -107,22 +132,17 @@ serve(async (req) => {
         )
       }
 
-      return new Response(
-        JSON.stringify({ 
-          message: 'Countdown started', 
-          race_state: 'countdown'
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+      console.log('✅ Race state updated:', updateData)
     }
 
     return new Response(
       JSON.stringify({ 
-        message: 'No timer update needed',
+        message,
+        updates: updateData,
+        current_state: raceState.race_state,
         current_timer: raceState.pre_race_timer,
-        race_state: raceState.race_state
+        countdown_timer: raceState.countdown_timer,
+        race_timer: raceState.race_timer
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

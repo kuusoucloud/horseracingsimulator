@@ -185,6 +185,13 @@ export default function Home() {
     setEloRefreshTrigger(prev => prev + 1);
   };
 
+  const handleVisualFinish = (results: RaceResult[]) => {
+    console.log('🏁 Visual finish detected! Showing results...');
+    setShowPhotoFinish(false);
+    setRaceResults(results);
+    setEloRefreshTrigger(prev => prev + 1);
+  };
+
   const processRaceResultsData = (results: RaceResult[]) => {
     // Get ELO ratings before updating them
     const beforeRatings = getStoredEloRatings();
@@ -269,11 +276,14 @@ export default function Home() {
           <div className="lg:col-span-1">
             <RaceController
               horses={horses}
-              raceState={raceState}
-              onRaceStateChange={handleRaceStateChange}
-              onRaceComplete={handleRaceComplete}
               onRaceProgress={handleRaceProgress}
-              preRaceTimer={preRaceTimer}
+              onRaceComplete={handleRaceComplete}
+              onRaceStateChange={handleRaceStateChange}
+              raceState={raceState}
+              preRaceTimer={syncedData?.pre_race_timer || localPreRaceTimer}
+              countdownTimer={syncedData?.countdown_timer || 0}
+              raceTimer={syncedData?.race_timer || 0}
+              onVisualFinish={handleVisualFinish}
             />
           </div>
         </div>
