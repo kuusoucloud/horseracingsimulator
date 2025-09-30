@@ -41,18 +41,17 @@ export default function Home() {
 
   // Initialize race when component mounts and no horses exist
   useEffect(() => {
-    if (horses.length === 0) {
+    if (isConnected && horses.length === 0) {
+      // Only initialize if we're connected and there's no existing race
       const newHorses = generateRandomHorses(8);
-      if (isConnected) {
-        initializeNewRace(newHorses);
-      } else {
-        // Offline mode
-        setLocalHorses(newHorses);
-        setLocalRaceState('pre-race');
-        setLocalPreRaceTimer(10);
-      }
+      initializeNewRace(newHorses);
+    } else if (!isConnected && localHorses.length === 0) {
+      // Offline mode - only initialize local state if empty
+      setLocalHorses(generateRandomHorses(8));
+      setLocalRaceState('pre-race');
+      setLocalPreRaceTimer(10);
     }
-  }, [horses.length, isConnected, initializeNewRace]);
+  }, [isConnected, initializeNewRace]);
 
   // Handle race progress updates from RaceController
   const handleRaceProgress = (progress: Array<{
@@ -85,24 +84,17 @@ export default function Home() {
     }
   };
 
-  // Pre-race timer effect - managed by first connected client or locally
+  // Pre-race timer effect - only for offline mode
   useEffect(() => {
     let preRaceInterval: NodeJS.Timeout;
     
-    if (raceState === 'pre-race' && horses.length > 0 && preRaceTimer > 0) {
+    // Only handle timer locally when offline
+    if (!isConnected && raceState === 'pre-race' && horses.length > 0 && preRaceTimer > 0) {
       preRaceInterval = setTimeout(() => {
-        if (isConnected) {
-          updateRaceState({ pre_race_timer: preRaceTimer - 1 });
-        } else {
-          setLocalPreRaceTimer(preRaceTimer - 1);
-        }
+        setLocalPreRaceTimer(preRaceTimer - 1);
       }, 1000);
-    } else if (raceState === 'pre-race' && preRaceTimer === 0) {
-      if (isConnected) {
-        updateRaceState({ race_state: 'countdown' });
-      } else {
-        setLocalRaceState('countdown');
-      }
+    } else if (!isConnected && raceState === 'pre-race' && preRaceTimer === 0) {
+      setLocalRaceState('countdown');
     }
     
     return () => {
@@ -110,7 +102,7 @@ export default function Home() {
         clearTimeout(preRaceInterval);
       }
     };
-  }, [raceState, horses.length, preRaceTimer, updateRaceState, isConnected]);
+  }, [raceState, horses.length, preRaceTimer, isConnected]);
 
   // Function to check if top 3 horses finished close together (within 0.1 seconds)
   const isPhotoFinishNeeded = (results: RaceResult[]): boolean => {
