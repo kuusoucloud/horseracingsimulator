@@ -1244,13 +1244,20 @@ export default function RaceTrack({
 
   // Use server weather conditions if available, otherwise generate client-side fallback
   const weatherConditions = useMemo(() => {
-    if (serverWeatherConditions) {
+    if (serverWeatherConditions && typeof serverWeatherConditions === 'object') {
       console.log('🌤️ Using server weather conditions:', serverWeatherConditions);
-      return serverWeatherConditions;
+      
+      // Validate that the server weather has all required fields
+      if (serverWeatherConditions.timeOfDay && 
+          serverWeatherConditions.weather && 
+          serverWeatherConditions.skyColor &&
+          typeof serverWeatherConditions.ambientIntensity === 'number') {
+        return serverWeatherConditions as WeatherConditions;
+      }
     }
     
     // Fallback to client-side generation (should rarely happen)
-    console.log('⚠️ No server weather found, using client fallback');
+    console.log('⚠️ No valid server weather found, using client fallback');
     return generateWeatherConditions();
   }, [serverWeatherConditions]);
 

@@ -36,6 +36,17 @@ export default function Home() {
   const photoFinishResultsFromServer = syncedData?.photo_finish_results || [];
   const serverWeatherConditions = syncedData?.weather_conditions || null;
   
+  // Debug weather conditions
+  useEffect(() => {
+    if (serverWeatherConditions) {
+      console.log('🌤️ Server weather received:', {
+        type: typeof serverWeatherConditions,
+        keys: Object.keys(serverWeatherConditions),
+        data: serverWeatherConditions
+      });
+    }
+  }, [serverWeatherConditions]);
+
   // Convert server race progress to display format
   const displayProgress = Object.entries(raceProgress).map(([horseId, data]: [string, any]) => ({
     id: horseId,
