@@ -265,10 +265,10 @@ export function useRaceSync() {
       if (syncedData.horses?.length > 0 && ['pre-race', 'countdown', 'racing'].includes(syncedData.race_state)) {
         console.log('🚀 Starting server-side timer management for state:', syncedData.race_state, 'horses:', syncedData.horses?.length);
         
-        timerInterval = setInterval(async () => {
+        // Immediately call the server timer once to test
+        const callServerTimer = async () => {
           try {
             console.log('📡 Calling server timer function...');
-            // Call the server-side timer function with correct URL format
             const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/race-timer`, {
               method: 'POST',
               headers: {
@@ -288,7 +288,13 @@ export function useRaceSync() {
           } catch (error) {
             console.error('❌ Error calling server timer:', error);
           }
-        }, 1000); // Call server every second
+        };
+        
+        // Call immediately
+        callServerTimer();
+        
+        // Then set up interval
+        timerInterval = setInterval(callServerTimer, 1000); // Call server every second
       } else {
         console.log('🚫 Not starting timer - conditions not met:', {
           horsesLength: syncedData.horses?.length,
