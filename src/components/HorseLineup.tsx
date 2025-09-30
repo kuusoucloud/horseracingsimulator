@@ -120,16 +120,14 @@ export default function HorseLineup({
                 return (
                   <motion.div
                     key={horse.id}
-                    className={`p-2 rounded-md cursor-pointer transition-all duration-300 backdrop-blur-sm flex-1 max-h-[65px] ${
+                    className={`p-2 rounded-md transition-all duration-300 backdrop-blur-sm flex-1 max-h-[65px] ${
                       selectedBet?.horseId === horse.id
                         ? "bg-gradient-to-r from-emerald-500/30 to-blue-500/30 border border-emerald-400/50 shadow-lg shadow-emerald-500/20"
-                        : "bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-400/30"
-                    } ${raceInProgress ? "opacity-50 cursor-not-allowed" : ""}`}
-                    onClick={() => handleSelectHorse(horse)}
+                        : "bg-white/5 border border-white/10"
+                    }`}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.4, delay: index * 0.05 }}
-                    whileHover={!raceInProgress ? { scale: 1.01 } : {}}
                   >
                     <div className="flex items-center gap-1.5 mb-1">
                       <div className="flex items-center gap-1">
@@ -219,122 +217,12 @@ export default function HorseLineup({
               </div>
             ) : (
               <p className="text-xs text-white/60 text-center">
-                {raceInProgress ? "🏁 Race in progress..." : ""}
+                {raceInProgress ? "🏁 Race in progress..." : "🏇 Watch the race"}
               </p>
             )}
           </motion.div>
         </div>
       </div>
-
-      <Dialog open={betDialogOpen} onOpenChange={setBetDialogOpen}>
-        <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-emerald-400/30 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-400">
-              💰 Place Your Bet
-            </DialogTitle>
-            <DialogDescription className="text-emerald-300/80">
-              {selectedHorse && (
-                <div className="mt-4 space-y-3 p-4 bg-white/5 rounded-lg border border-white/10">
-                  <div className="flex items-center gap-2">
-                    <p className="text-lg">
-                      Horse:{" "}
-                      <span
-                        className={`font-bold ${getHorseRank(selectedHorse.elo).textColor}`}
-                      >
-                        {selectedHorse.name}
-                      </span>
-                    </p>
-                    <Badge
-                      className={`text-xs ${getHorseRank(selectedHorse.elo).bgColor} ${getHorseRank(selectedHorse.elo).borderColor} ${getHorseRank(selectedHorse.elo).textColor}`}
-                    >
-                      {getHorseRank(selectedHorse.elo).name}
-                    </Badge>
-                  </div>
-                  <p className="text-lg">
-                    Odds:{" "}
-                    <span className="font-bold text-emerald-300">
-                      {selectedHorse.odds.toFixed(2)}:1
-                    </span>
-                  </p>
-                  <p className="text-sm text-white/70">
-                    ELO Rating:{" "}
-                    <span className="font-mono">{selectedHorse.elo}</span>
-                  </p>
-
-                  {/* Horse Statistics */}
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/10">
-                    <div>
-                      <p className="text-xs text-white/50 mb-1">Career Wins</p>
-                      <div className="flex items-center gap-1">
-                        <Trophy className="w-4 h-4 text-yellow-400" />
-                        <span className="text-yellow-300 font-bold">
-                          {horseStats[selectedHorse.name]?.wins || 0}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-white/50 mb-1">
-                        Recent Form (Last 5)
-                      </p>
-                      <div className="flex items-center gap-1">
-                        {getFormDisplay(selectedHorse.name)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-6 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label
-                htmlFor="bet-amount"
-                className="text-right text-emerald-300 font-semibold"
-              >
-                Bet Amount
-              </Label>
-              <Input
-                id="bet-amount"
-                type="number"
-                min="1"
-                max="1000"
-                value={betAmount}
-                onChange={(e) => setBetAmount(Number(e.target.value))}
-                className="col-span-3 bg-white/10 border-emerald-400/30 text-white placeholder-white/50 focus:border-emerald-400"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <div className="text-right text-sm text-emerald-300/80 font-semibold">
-                Potential Win
-              </div>
-              <div className="col-span-3 font-bold text-3xl text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-400">
-                $
-                {selectedHorse
-                  ? (betAmount * selectedHorse.odds).toFixed(2)
-                  : "0.00"}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setBetDialogOpen(false)}
-              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handlePlaceBet}
-              disabled={betAmount < 1}
-              className="bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-bold disabled:opacity-50 hover:from-emerald-600 hover:to-blue-600"
-            >
-              Place Bet
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

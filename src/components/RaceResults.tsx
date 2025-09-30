@@ -141,12 +141,6 @@ export default function RaceResults({
           <DialogTitle className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-center">
             Race Results
           </DialogTitle>
-          <button
-            onClick={onClose}
-            className="absolute right-4 top-4 text-gray-400 hover:text-white transition-colors"
-          >
-            <X size={24} />
-          </button>
         </DialogHeader>
 
         <div className="p-6">
@@ -237,14 +231,11 @@ export default function RaceResults({
             })}
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons - Remove all buttons, keep auto-click timer */}
           <div className="flex gap-4 justify-center">
-            <button
-              onClick={handleNewRace}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-3 rounded-lg font-bold text-lg shadow-lg">
               🏇 New Race ({countdown}s)
-            </button>
+            </div>
           </div>
         </div>
       </DialogContent>

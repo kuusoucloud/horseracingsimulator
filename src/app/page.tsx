@@ -225,18 +225,6 @@ export default function Home() {
               onRaceProgress={handleRaceProgress}
               preRaceTimer={preRaceTimer}
             />
-            
-            {/* New Race Button */}
-            {raceState === 'finished' && (
-              <div className="text-center mt-4">
-                <button
-                  onClick={handleNewRace}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors text-sm w-full"
-                >
-                  🏁 New Race
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>

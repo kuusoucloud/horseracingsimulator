@@ -503,26 +503,22 @@ export default function RaceController({
       
       <div className="relative z-10 p-4 h-full flex flex-col items-center justify-center space-y-4">
         <div className="text-center">
-          <button
-            onClick={startRace}
-            disabled={raceState !== "pre-race" || preRaceTimer > 0}
-            className={`px-4 py-3 rounded-lg font-bold text-sm transition-all duration-300 w-full ${
-              raceState === "pre-race" && preRaceTimer === 0
-                ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105"
-                : "bg-gray-400 text-gray-700 cursor-not-allowed"
-            }`}
-          >
+          <div className={`px-4 py-3 rounded-lg font-bold text-sm transition-all duration-300 w-full ${
+            raceState === "pre-race" && preRaceTimer === 0
+              ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg"
+              : "bg-gray-400 text-gray-700"
+          }`}>
             {raceState === "pre-race" && preRaceTimer > 0
               ? `⏱️ Starting in ${preRaceTimer}s`
               : raceState === "pre-race" 
-              ? "🏇 Start Race" 
+              ? "🏇 Race Starting..." 
               : raceState === "countdown" 
               ? "🏁 Starting..." 
               : raceState === "racing" 
               ? "🏇 Racing" 
               : "🏆 Finished"
             }
-          </button>
+          </div>
           
           {preRaceTimer > 0 && raceState === "pre-race" && (
             <div className="text-4xl font-bold text-white animate-pulse bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mt-3">
