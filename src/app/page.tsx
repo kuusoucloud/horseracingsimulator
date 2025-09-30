@@ -64,6 +64,11 @@ export default function Home() {
     updateRaceState({ race_progress: progressMap });
   };
 
+  // Handle race state changes from RaceController
+  const handleRaceStateChange = (newState: RaceState) => {
+    updateRaceState({ race_state: newState });
+  };
+
   // Pre-race timer effect - managed by first connected client
   useEffect(() => {
     let preRaceInterval: NodeJS.Timeout;
@@ -232,7 +237,7 @@ export default function Home() {
             <RaceController
               horses={horses}
               raceState={raceState}
-              onRaceStateChange={setRaceState}
+              onRaceStateChange={handleRaceStateChange}
               onRaceComplete={handleRaceComplete}
               onRaceProgress={handleRaceProgress}
               preRaceTimer={preRaceTimer}
