@@ -610,6 +610,7 @@ function SmoothHorse({
       auraRef.current.children.forEach((child, i) => {
         if (
           i >= 2 &&
+          auraRef.current &&
           i < auraRef.current.children.length - (horse.elo >= 2000 ? 2 : 0)
         ) {
           // Skip main rings and mystical rings
