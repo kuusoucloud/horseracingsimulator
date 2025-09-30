@@ -374,7 +374,7 @@ interface SmoothHorseProps {
 // Horse data interface for 3D rendering
 interface HorseData extends Horse {
   lane?: number;
-  color?: string;
+  color: string;
   elo?: number;
   sprintStartPercent?: number;
 }
