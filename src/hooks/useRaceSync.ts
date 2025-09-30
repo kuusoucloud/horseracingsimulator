@@ -243,11 +243,14 @@ export function useRaceSync() {
     let timerInterval: NodeJS.Timeout;
     
     const startServerTimer = () => {
-      if (!supabase || !syncedData) return;
+      if (!supabase || !syncedData) {
+        console.log('🚫 Cannot start timer - missing supabase or syncedData:', { supabase: !!supabase, syncedData: !!syncedData });
+        return;
+      }
       
       // Start server timer for any active race state (pre-race, countdown, racing)
       if (syncedData.horses?.length > 0 && ['pre-race', 'countdown', 'racing'].includes(syncedData.race_state)) {
-        console.log('🚀 Starting server-side timer management for state:', syncedData.race_state);
+        console.log('🚀 Starting server-side timer management for state:', syncedData.race_state, 'horses:', syncedData.horses?.length);
         
         timerInterval = setInterval(async () => {
           try {
@@ -273,6 +276,12 @@ export function useRaceSync() {
             console.error('❌ Error calling server timer:', error);
           }
         }, 1000); // Call server every second
+      } else {
+        console.log('🚫 Not starting timer - conditions not met:', {
+          horsesLength: syncedData.horses?.length,
+          raceState: syncedData.race_state,
+          validStates: ['pre-race', 'countdown', 'racing'].includes(syncedData.race_state)
+        });
       }
     };
 
@@ -281,6 +290,7 @@ export function useRaceSync() {
     
     return () => {
       if (timerInterval) {
+        console.log('🛑 Clearing timer interval');
         clearInterval(timerInterval);
       }
     };
