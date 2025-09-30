@@ -1790,7 +1790,7 @@ export default function RaceTrack({
               />
               {/* Sky light simulation */}
               <hemisphereLight
-                skyColor="#87ceeb"
+                color="#87ceeb"
                 groundColor="#228b22"
                 intensity={0.3}
               />
