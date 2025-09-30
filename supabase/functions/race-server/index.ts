@@ -496,15 +496,15 @@ async function updateRaceState() {
 
     // Handle PRE-RACE TIMER (10 seconds countdown)
     if (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) {
-      const newTimer = Math.max(0, raceState.pre_race_timer - 0.2) // Decrease by 0.2 seconds per 200ms update
-      console.log(`⏰ Pre-race timer: ${raceState.pre_race_timer.toFixed(1)} -> ${newTimer.toFixed(1)}`)
+      const newTimer = Math.max(0, raceState.pre_race_timer - 1) // Decrease by 1 second per update
+      console.log(`⏰ Pre-race timer: ${raceState.pre_race_timer} -> ${newTimer}`)
 
       if (newTimer > 0) {
         updateData = { 
           pre_race_timer: newTimer,
           timer_owner: 'server'
         }
-        message = `Pre-race timer updated to ${newTimer.toFixed(1)}`
+        message = `Pre-race timer updated to ${newTimer}`
       } else {
         // Timer reached 0, start countdown phase
         updateData = { 
@@ -519,15 +519,15 @@ async function updateRaceState() {
     // Handle COUNTDOWN TIMER (10 seconds before race starts)
     else if (raceState.race_state === 'countdown') {
       const currentCountdown = raceState.countdown_timer || 10
-      const newCountdown = Math.max(0, currentCountdown - 0.2) // Decrease by 0.2 seconds per 200ms update
-      console.log(`⏰ Countdown timer: ${currentCountdown.toFixed(1)} -> ${newCountdown.toFixed(1)}`)
+      const newCountdown = Math.max(0, currentCountdown - 1) // Decrease by 1 second per update
+      console.log(`⏰ Countdown timer: ${currentCountdown} -> ${newCountdown}`)
 
       if (newCountdown > 0) {
         updateData = { 
           countdown_timer: newCountdown,
           timer_owner: 'server'
         }
-        message = `Countdown timer updated to ${newCountdown.toFixed(1)}`
+        message = `Countdown timer updated to ${newCountdown}`
       } else {
         // Countdown finished, start race
         const initialRaceProgress: RaceProgress = {}
@@ -555,8 +555,8 @@ async function updateRaceState() {
     // Handle RACE SIMULATION (during race)
     else if (raceState.race_state === 'racing') {
       const currentRaceTimer = raceState.race_timer || 0
-      const newRaceTimer = currentRaceTimer + 0.2 // Increase by 0.2 seconds per 200ms update
-      console.log(`⏰ Race timer: ${currentRaceTimer.toFixed(1)} -> ${newRaceTimer.toFixed(1)}`)
+      const newRaceTimer = currentRaceTimer + 1 // Increase by 1 second per update
+      console.log(`⏰ Race timer: ${currentRaceTimer} -> ${newRaceTimer}`)
 
       let raceProgress: RaceProgress = raceState.race_progress || {}
       const horses = raceState.horses || []
@@ -593,8 +593,8 @@ async function updateRaceState() {
         const randomFactor = 0.7 + Math.random() * 0.6
         const currentSpeed = baseSpeed * randomFactor
         
-        // Calculate new position (0.2 second intervals for smooth movement)
-        const newPosition = Math.min(currentPosition + (currentSpeed * 0.2), 1200)
+        // Calculate new position (1 second intervals)
+        const newPosition = Math.min(currentPosition + currentSpeed, 1200)
         
         // Check if horse finished
         if (newPosition >= 1200 && !horseProgress.finished) {
@@ -609,7 +609,7 @@ async function updateRaceState() {
             name: horse.name,
             finishTime: newRaceTimer
           })
-          console.log(`🏁 ${horse.name} finished at ${newRaceTimer.toFixed(1)}s`)
+          console.log(`🏁 ${horse.name} finished at ${newRaceTimer}s`)
         } else {
           raceProgress[horse.id] = {
             position: newPosition,
@@ -625,7 +625,7 @@ async function updateRaceState() {
         race_progress: raceProgress,
         timer_owner: 'server'
       }
-      message = `Race timer updated to ${newRaceTimer.toFixed(1)}s`
+      message = `Race timer updated to ${newRaceTimer}s`
 
       // Check if race should finish - ORIGINAL TIMING
       if (allFinished || newRaceTimer >= 80) {
@@ -736,11 +736,11 @@ function startRaceLoop() {
     return
   }
   
-  console.log('🚀 Starting super responsive race server loop...')
+  console.log('🚀 Starting race server loop with 1-second intervals...')
   isRaceLoopRunning = true
   
-  // Update race state every 200ms for super responsive, lag-free updates
-  raceLoopInterval = setInterval(updateRaceState, 200)
+  // Update race state every 1000ms (1 second) for proper timing
+  raceLoopInterval = setInterval(updateRaceState, 1000)
   
   // Also run immediately
   updateRaceState()
