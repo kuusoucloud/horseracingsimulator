@@ -27,6 +27,11 @@ export function useRaceSync() {
 
   // Fetch current race state
   const fetchRaceState = useCallback(async () => {
+    if (!supabase) {
+      console.warn('Supabase client not available');
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('race_state')
@@ -111,9 +116,18 @@ export function useRaceSync() {
 
   // Claim timer ownership
   const claimTimerOwnership = useCallback(async () => {
+    if (!supabase) {
+      console.warn('Supabase client not available');
+      return false;
+    }
+
     try {
-      const { data } = await supabase.from('race_state').select('timer_owner').single();
-      
+      const sessionId = Math.random().toString(36).substring(7);
+      const { error } = await supabase
+        .from('race_state')
+        .update({ timer_owner: sessionId })
+        .eq('id', 1);
+
       // If no owner or owner is stale, claim ownership
       if (!data?.timer_owner) {
         await updateRaceState({ timer_owner: clientId.current });
@@ -130,6 +144,11 @@ export function useRaceSync() {
 
   // Release timer ownership
   const releaseTimerOwnership = useCallback(async () => {
+    if (!supabase) {
+      console.warn('Supabase client not available');
+      return;
+    }
+
     if (isTimerOwner.current) {
       await updateRaceState({ timer_owner: undefined });
       isTimerOwner.current = false;
