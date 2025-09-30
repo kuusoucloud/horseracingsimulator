@@ -44,7 +44,9 @@ export default function RaceController({
 
   // Handle race state changes from sync
   const handleRaceStateChange = (newState: RaceState) => {
-    onRaceStateChange(newState);
+    if (onRaceStateChange) {
+      onRaceStateChange(newState);
+    }
     
     // Update synced state if this client initiated the change
     if (typeof window !== 'undefined') {
