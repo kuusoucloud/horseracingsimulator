@@ -1702,10 +1702,22 @@ export default function RaceTrack({
             const [targetX, , laneOffset] = allHorsePositions[index];
             const actualLane = ('lane' in horse ? horse.lane : null) || index + 1;
 
+            // Ensure we have a proper HorseData object
+            const horseData: HorseData = {
+              ...horse,
+              lane: actualLane,
+              color: horse.color || "#8B4513",
+              elo: horse.elo || 1000,
+              stamina: horse.stamina || 50,
+              acceleration: horse.acceleration || 50,
+              odds: horse.odds || 5.0,
+              sprintStartPercent: horse.sprintStartPercent || 60,
+            };
+
             return (
               <SmoothHorse
                 key={horse.id || index}
-                horse={horse}
+                horse={horseData}
                 targetX={targetX}
                 laneOffset={laneOffset}
                 position={position}
