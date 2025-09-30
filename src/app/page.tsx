@@ -125,10 +125,9 @@ export default function Home() {
     // Always process ELO first
     const processedResults = processRaceResultsData(results);
     
-    // Update race results in database
+    // Update race state in database (don't store race_results as they're UI-only)
     updateRaceState({ 
-      race_state: 'finished',
-      race_results: processedResults 
+      race_state: 'finished'
     });
     
     // Check if photo finish is needed
