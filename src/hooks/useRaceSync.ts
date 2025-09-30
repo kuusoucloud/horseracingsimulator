@@ -160,11 +160,12 @@ export function useRaceSync() {
           },
           (payload) => {
             if (payload.new) {
-              setRaceState(payload.new.race_state);
-              setHorses(payload.new.horses || []);
-              setRaceProgress(payload.new.race_progress || {});
-              setPreRaceTimer(payload.new.pre_race_timer || 10);
-              setRaceResults(payload.new.race_results || []);
+              const newData = payload.new as RaceStateRow;
+              setRaceState(newData.race_state);
+              setHorses(newData.horses || []);
+              setRaceProgress(newData.race_progress || {});
+              setPreRaceTimer(newData.pre_race_timer || 10);
+              setRaceResults(newData.race_results || []);
             }
           }
         )
