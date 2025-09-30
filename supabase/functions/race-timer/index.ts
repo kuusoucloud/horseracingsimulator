@@ -210,9 +210,9 @@ Deno.serve(async (req) => {
       message = `Race timer updated to ${newRaceTimer}s`
 
       // Check if race should finish
-      if (allFinished || newRaceTimer >= 30) {
+      if (allFinished || newRaceTimer >= 80) {
         updateData.race_state = 'finished'
-        message = allFinished ? 'All horses finished!' : 'Race auto-finished after 30 seconds'
+        message = allFinished ? 'All horses finished!' : 'Race auto-finished after 80 seconds'
         
         // Create final results
         const results = horses.map((horse: any, index: number) => {
