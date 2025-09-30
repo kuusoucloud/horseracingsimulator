@@ -7,25 +7,23 @@ interface RaceStateRow {
   id: string;
   race_state: RaceState;
   horses: Horse[];
-  race_progress: Record<string, number>;
+  race_progress: Record<string, any>;
   pre_race_timer: number;
-  countdown_timer?: number; // Add countdown timer
-  race_timer?: number; // Add race timer
-  race_start_time?: string; // Add race start time
-  race_results: Horse[];
+  countdown_timer?: number;
+  race_timer?: number;
+  race_start_time?: string;
+  race_results: any[];
   created_at: string;
   updated_at: string;
-  timer_owner?: string; // Add timer owner field
+  timer_owner?: string;
 }
 
-// Define the type for synced race data updates
 type SyncedRaceData = Omit<RaceStateRow, 'id' | 'created_at' | 'updated_at'>;
 
 export function useRaceSync() {
   const [syncedData, setSyncedData] = useState<SyncedRaceData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const clientId = useRef(Math.random().toString(36).substring(7));
-  const isTimerOwner = useRef(false);
+  const hasStartedServer = useRef(false);
 
   // Set connection status based on Supabase availability
   useEffect(() => {
@@ -37,13 +35,38 @@ export function useRaceSync() {
     }
   }, []);
 
+  // Start the autonomous race server when component mounts
+  useEffect(() => {
+    const startRaceServer = async () => {
+      if (!supabase || hasStartedServer.current) return;
+      
+      try {
+        console.log('🚀 Starting autonomous race server...');
+        hasStartedServer.current = true;
+        
+        const { data, error } = await supabase.functions.invoke('supabase-functions-race-server', {
+          body: {},
+        });
+
+        if (error) {
+          console.error('❌ Failed to start race server:', error);
+        } else {
+          console.log('✅ Race server started:', data);
+        }
+      } catch (error) {
+        console.error('❌ Error starting race server:', error);
+      }
+    };
+
+    startRaceServer();
+  }, []);
+
   // Load initial race state
   useEffect(() => {
     const loadRaceState = async () => {
       if (!supabase) return;
 
       try {
-        // Try to get existing race state
         const { data, error } = await supabase
           .from('race_state')
           .select('*')
@@ -59,7 +82,7 @@ export function useRaceSync() {
           console.log('🏇 Loaded existing race state:', data);
           setSyncedData(data as SyncedRaceData);
         } else {
-          console.log('🏇 No existing race state found');
+          console.log('🏇 No existing race state found - server will create one');
         }
       } catch (error) {
         console.error('Error in loadRaceState:', error);
@@ -117,213 +140,14 @@ export function useRaceSync() {
     };
   }, []);
 
-  // Update race state function with better error handling
+  // These functions are now no-ops since the server handles everything
   const updateRaceState = useCallback(async (updates: Partial<SyncedRaceData>) => {
-    if (!supabase) {
-      console.warn('Supabase client not available');
-      return;
-    }
-
-    try {
-      // First, get the current race state ID
-      const { data: currentData, error: selectError } = await supabase
-        .from('race_state')
-        .select('id')
-        .limit(1)
-        .single();
-
-      if (selectError) {
-        console.error('Error getting current race state:', selectError);
-        return;
-      }
-
-      if (!currentData?.id) {
-        console.error('No race state found to update');
-        return;
-      }
-
-      // Update the race state
-      const { error: updateError } = await supabase
-        .from('race_state')
-        .update(updates)
-        .eq('id', currentData.id);
-
-      if (updateError) {
-        console.error('Error updating race state:', updateError);
-        return;
-      }
-
-      console.log('✅ Race state updated successfully:', updates);
-    } catch (error) {
-      console.error('Error updating race state:', error);
-    }
+    console.log('🚫 Client cannot update race state - server is autonomous');
   }, []);
 
-  // Initialize new race function with better error handling
   const initializeNewRace = useCallback(async (horses: Horse[]) => {
-    if (!supabase) {
-      console.warn('Supabase client not available');
-      return;
-    }
-
-    try {
-      // Check if there's already an active race first
-      const { data: existingRace, error: checkError } = await supabase
-        .from('race_state')
-        .select('*')
-        .limit(1)
-        .single();
-
-      if (!checkError && existingRace && existingRace.horses && existingRace.horses.length > 0) {
-        console.log('🏇 Race already exists, using existing race:', existingRace);
-        setSyncedData(existingRace as SyncedRaceData);
-        return;
-      }
-
-      // Delete all existing race states
-      const { error: deleteError } = await supabase
-        .from('race_state')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
-
-      if (deleteError) {
-        console.error('Error deleting existing race states:', deleteError);
-      }
-
-      // When creating a new race, include horses data
-      const newRaceState = {
-        race_state: 'pre-race',
-        pre_race_timer: 10,
-        countdown_timer: 0,
-        race_timer: 0,
-        race_start_time: null,
-        timer_owner: 'client',
-        horses: horses || [], // Include horses data
-        race_progress: {},
-        race_results: []
-      };
-
-      const { data, error: insertError } = await supabase
-        .from('race_state')
-        .insert(newRaceState)
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('Error creating new race state:', insertError);
-        return;
-      }
-
-      console.log('🏇 New race initialized successfully:', data);
-      setSyncedData(data as SyncedRaceData);
-
-    } catch (error) {
-      console.error('Error initializing new race:', error);
-    }
+    console.log('🚫 Client cannot initialize race - server handles this automatically');
   }, []);
-
-  // Timer ownership with better error handling - SIMPLIFIED since server handles timer
-  const claimTimerOwnership = useCallback(async (): Promise<boolean> => {
-    // Server now handles timer, so this is simplified
-    return true;
-  }, []);
-
-  // Release timer ownership
-  const releaseTimerOwnership = useCallback(async () => {
-    if (!supabase) {
-      console.warn('Supabase client not available');
-      return;
-    }
-
-    if (isTimerOwner.current) {
-      await updateRaceState({ timer_owner: undefined });
-      isTimerOwner.current = false;
-    }
-  }, [updateRaceState]);
-
-  // Server-side timer management
-  useEffect(() => {
-    console.log('🔄 Timer useEffect triggered!', { 
-      raceState: syncedData?.race_state, 
-      horsesLength: syncedData?.horses?.length,
-      supabase: !!supabase 
-    });
-    
-    let timerInterval: NodeJS.Timeout;
-    
-    const startServerTimer = () => {
-      console.log('🔍 Timer check - supabase:', !!supabase, 'syncedData:', !!syncedData);
-      console.log('🔍 syncedData details:', {
-        horses: syncedData?.horses?.length,
-        raceState: syncedData?.race_state,
-        validStates: syncedData?.race_state ? ['pre-race', 'countdown', 'racing'].includes(syncedData.race_state) : false
-      });
-      
-      if (!supabase || !syncedData) {
-        console.log('🚫 Cannot start timer - missing supabase or syncedData:', { supabase: !!supabase, syncedData: !!syncedData });
-        return;
-      }
-      
-      // Start server timer for any active race state (pre-race, countdown, racing)
-      if (syncedData.horses?.length > 0 && ['pre-race', 'countdown', 'racing'].includes(syncedData.race_state)) {
-        console.log('🚀 Starting server-side timer management for state:', syncedData.race_state, 'horses:', syncedData.horses?.length);
-        
-        // Immediately call the server timer once to test
-        const callServerTimer = async () => {
-          try {
-            console.log('📡 Calling server timer function...');
-            
-            if (!supabase) {
-              console.error('❌ Supabase client not available');
-              return;
-            }
-            
-            // Use Supabase functions.invoke instead of direct fetch
-            const { data, error } = await supabase.functions.invoke('supabase-functions-race-timer', {
-              body: {},
-            });
-
-            if (error) {
-              console.error('❌ Server timer request failed:', error);
-            } else {
-              console.log('⏰ Server timer response:', data);
-            }
-          } catch (error) {
-            console.error('❌ Error calling server timer:', error);
-          }
-        };
-        
-        // Call immediately
-        callServerTimer();
-        
-        // Then set up interval
-        timerInterval = setInterval(callServerTimer, 1000); // Call server every second
-      } else {
-        console.log('🚫 Not starting timer - conditions not met:', {
-          horsesLength: syncedData?.horses?.length,
-          raceState: syncedData?.race_state,
-          validStates: ['pre-race', 'countdown', 'racing'].includes(syncedData?.race_state)
-        });
-      }
-    };
-
-    // Start the server timer
-    startServerTimer();
-    
-    return () => {
-      if (timerInterval) {
-        console.log('🛑 Clearing timer interval');
-        clearInterval(timerInterval);
-      }
-    };
-  }, [syncedData?.race_state, syncedData?.horses?.length, syncedData?.pre_race_timer, supabase]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      releaseTimerOwnership();
-    };
-  }, [releaseTimerOwnership]);
 
   return {
     syncedData,
