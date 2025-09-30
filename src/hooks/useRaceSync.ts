@@ -270,6 +270,11 @@ export function useRaceSync() {
           try {
             console.log('📡 Calling server timer function...');
             
+            if (!supabase) {
+              console.error('❌ Supabase client not available');
+              return;
+            }
+            
             // Use Supabase functions.invoke instead of direct fetch
             const { data, error } = await supabase.functions.invoke('supabase-functions-race-timer', {
               body: {},
