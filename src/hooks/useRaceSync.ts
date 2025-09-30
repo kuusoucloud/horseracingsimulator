@@ -307,7 +307,7 @@ export function useRaceSync() {
         clearInterval(timerInterval);
       }
     };
-  }, [syncedData?.race_state, syncedData?.horses?.length, supabase]);
+  }, [syncedData, supabase]);
 
   // Cleanup on unmount
   useEffect(() => {
