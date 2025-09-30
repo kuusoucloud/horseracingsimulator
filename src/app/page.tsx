@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { generateRandomHorses, updateEloRatings, getStoredEloRatings, updateHorseStats } from '@/data/horses';
 import { Horse, RaceResult, RaceState } from '@/types/horse';
 import { useRaceSync } from '@/hooks/useRaceSync';
@@ -65,27 +65,32 @@ export default function Home() {
     initializeRaceIfNeeded();
   }, [isConnected]); // Only depend on connection status
 
-  // Handle race progress updates from RaceController
-  const handleRaceProgress = (progress: Array<{
+  // Handle race progress updates from server
+  const handleRaceProgress = useCallback((progress: Array<{
     id: string;
     name: string;
     position: number;
     speed: number;
+    horse?: Horse;
   }>) => {
-    const progressWithHorses = progress.map(p => ({
-      ...p,
-      horse: horses.find(h => h.id === p.id)
-    }));
-    setRaceProgress(progressWithHorses);
-    
-    // Update race progress in database
-    const progressMap = progress.reduce((acc, p) => {
-      acc[p.id] = p.position;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    updateRaceState({ race_progress: progressMap });
-  };
+    // Only update if we have server race progress data
+    if (syncedData?.race_progress && Object.keys(syncedData.race_progress).length > 0) {
+      // Use server race progress instead of client simulation
+      const serverProgress = Object.entries(syncedData.race_progress).map(([horseId, data]: [string, any]) => ({
+        id: horseId,
+        name: horses.find(h => h.id === horseId)?.name || 'Unknown',
+        position: data.position || 0,
+        speed: data.speed || 0,
+        horse: horses.find(h => h.id === horseId)
+      }));
+      
+      setRaceProgress(serverProgress);
+      console.log('📊 Using server race progress:', serverProgress);
+    } else {
+      // Fallback to client progress if no server data
+      setRaceProgress(progress);
+    }
+  }, [syncedData?.race_progress, horses]);
 
   // Handle race state changes from RaceController
   const handleRaceStateChange = (newState: RaceState) => {
@@ -153,30 +158,20 @@ export default function Home() {
     }
   };
 
-  const handleRaceComplete = (results: RaceResult[]) => {
-    console.log('Race completed with results:', results);
-    
-    // Always process ELO first
-    const processedResults = processRaceResultsData(results);
-    
-    // Update race state in database or locally
-    if (isConnected) {
-      updateRaceState({ race_state: 'finished' });
+  // Handle race completion from server
+  const handleRaceComplete = useCallback((results: RaceResult[]) => {
+    // Check if we have server results
+    if (syncedData?.race_results && syncedData.race_results.length > 0) {
+      console.log('🏆 Using server race results:', syncedData.race_results);
+      setRaceResults(syncedData.race_results);
+      setRaceState('finished');
     } else {
-      setLocalRaceState('finished');
+      // Fallback to client results
+      console.log('🏆 Using client race results:', results);
+      setRaceResults(results);
+      setRaceState('finished');
     }
-    
-    // Check if photo finish is needed
-    if (isPhotoFinishNeeded(results)) {
-      console.log('🏁 Triggering photo finish sequence...');
-      setPhotoFinishResults(processedResults);
-      setShowPhotoFinish(true);
-    } else {
-      console.log('🏁 No photo finish needed, showing results directly');
-      setRaceResults(processedResults);
-      setEloRefreshTrigger(prev => prev + 1);
-    }
-  };
+  }, [syncedData?.race_results]);
 
   const handlePhotoFinishComplete = (finalResults: RaceResult[]) => {
     console.log('📸 Photo finish complete, showing final results...');
@@ -230,6 +225,15 @@ export default function Home() {
     
     return resultsWithEloChanges;
   };
+
+  // Handle server race completion
+  useEffect(() => {
+    if (syncedData?.race_state === 'finished' && syncedData?.race_results && syncedData.race_results.length > 0) {
+      console.log('🏆 Server indicates race finished, showing results');
+      setRaceResults(syncedData.race_results);
+      setRaceState('finished');
+    }
+  }, [syncedData?.race_state, syncedData?.race_results]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 p-4">

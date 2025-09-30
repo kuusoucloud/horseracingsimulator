@@ -190,14 +190,17 @@ export function useRaceSync() {
         console.error('Error deleting existing race states:', deleteError);
       }
 
-      // Create new race state
+      // When creating a new race, include horses data
       const newRaceState = {
-        race_state: 'pre-race' as const,
-        horses: horses,
-        race_progress: {},
+        race_state: 'pre-race',
         pre_race_timer: 10,
-        race_results: [],
-        timer_owner: null as string | null
+        countdown_timer: 0,
+        race_timer: 0,
+        race_start_time: null,
+        timer_owner: 'client',
+        horses: horses || [], // Include horses data
+        race_progress: {},
+        race_results: []
       };
 
       const { data, error: insertError } = await supabase

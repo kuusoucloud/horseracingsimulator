@@ -101,7 +101,7 @@ export default function RaceController({
   useEffect(() => {
     console.log("Race state changed to:", raceState);
     if (raceState === "countdown") {
-      setCountdown(10);
+      setCountdown(countdownTimer || 10);
       setIsRacing(false);
       setFinishedHorsesRef(new Set());
       setVisualFinishedHorses(new Set());
@@ -110,14 +110,14 @@ export default function RaceController({
       setIsRacing(true);
       setCountdown(0);
       setRaceStartTime(performance.now());
-      setLocalRaceTimer(0);
+      setLocalRaceTimer(syncedRaceTimer || 0);
       setFinishedHorsesRef(new Set());
       setVisualFinishedHorses(new Set());
     } else if (raceState === "pre-race" || raceState === "finished") {
       setIsRacing(false);
       setCountdown(0);
     }
-  }, [raceState]);
+  }, [raceState, countdownTimer, syncedRaceTimer]);
 
   // Update countdown from synced data
   useEffect(() => {

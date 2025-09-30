@@ -6,6 +6,25 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
+// Horse race simulation data
+interface Horse {
+  id: string;
+  name: string;
+  elo: number;
+  position: number;
+  finished: boolean;
+  finishTime?: number;
+}
+
+interface RaceProgress {
+  [horseId: string]: {
+    position: number;
+    speed: number;
+    finished: boolean;
+    finishTime?: number;
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests first
   if (req.method === 'OPTIONS') {
@@ -90,33 +109,129 @@ Deno.serve(async (req) => {
         }
         message = `Countdown timer updated to ${newCountdown}`
       } else {
-        // Countdown finished, start race
+        // Countdown finished, start race with initial horse positions
+        const initialRaceProgress: RaceProgress = {}
+        
+        // Initialize all horses at position 0
+        const horses = raceState.horses || []
+        horses.forEach((horse: any) => {
+          initialRaceProgress[horse.id] = {
+            position: 0,
+            speed: 0,
+            finished: false
+          }
+        })
+
         updateData = { 
           countdown_timer: 0,
           race_state: 'racing',
           race_start_time: new Date().toISOString(),
           race_timer: 0,
+          race_progress: initialRaceProgress,
           timer_owner: 'server'
         }
         message = 'Race started!'
       }
     }
-    // Handle RACE TIMER (during race)
+    // Handle RACE SIMULATION (during race)
     else if (raceState.race_state === 'racing') {
       const currentRaceTimer = raceState.race_timer || 0
       const newRaceTimer = currentRaceTimer + 1 // Increment race timer
       console.log(`⏰ Race timer: ${currentRaceTimer} -> ${newRaceTimer}`)
 
+      // Get current race progress or initialize
+      let raceProgress: RaceProgress = raceState.race_progress || {}
+      const horses = raceState.horses || []
+      
+      // Initialize race progress if empty
+      if (Object.keys(raceProgress).length === 0) {
+        horses.forEach((horse: any) => {
+          raceProgress[horse.id] = {
+            position: 0,
+            speed: 0,
+            finished: false
+          }
+        })
+      }
+
+      // Simulate race progress for each horse
+      let allFinished = true
+      const finishedHorses: Array<{id: string, name: string, finishTime: number}> = []
+
+      horses.forEach((horse: any) => {
+        const horseProgress = raceProgress[horse.id]
+        if (!horseProgress || horseProgress.finished) {
+          return // Skip finished horses
+        }
+
+        const currentPosition = horseProgress.position || 0
+        const horseELO = horse.elo || 1200
+        
+        // Convert ELO to speed (higher ELO = faster)
+        const eloNormalized = Math.max(0, Math.min(1, (horseELO - 400) / 1700))
+        const baseSpeed = 0.8 + (eloNormalized * 1.2) // Speed range: 0.8 - 2.0 per second
+        
+        // Add randomness for exciting races
+        const randomFactor = 0.7 + Math.random() * 0.6 // 0.7x to 1.3x
+        const currentSpeed = baseSpeed * randomFactor
+        
+        // Calculate new position
+        const newPosition = Math.min(currentPosition + currentSpeed, 1200)
+        
+        // Check if horse finished
+        if (newPosition >= 1200 && !horseProgress.finished) {
+          raceProgress[horse.id] = {
+            position: 1200,
+            speed: currentSpeed,
+            finished: true,
+            finishTime: newRaceTimer
+          }
+          finishedHorses.push({
+            id: horse.id,
+            name: horse.name,
+            finishTime: newRaceTimer
+          })
+          console.log(`🏁 ${horse.name} finished at ${newRaceTimer}s`)
+        } else {
+          raceProgress[horse.id] = {
+            position: newPosition,
+            speed: currentSpeed,
+            finished: false
+          }
+          allFinished = false
+        }
+      })
+
       updateData = { 
         race_timer: newRaceTimer,
+        race_progress: raceProgress,
         timer_owner: 'server'
       }
       message = `Race timer updated to ${newRaceTimer}s`
 
-      // Auto-finish race after 30 seconds if not finished
-      if (newRaceTimer >= 30) {
+      // Check if race should finish
+      if (allFinished || newRaceTimer >= 30) {
         updateData.race_state = 'finished'
-        message = 'Race auto-finished after 30 seconds'
+        message = allFinished ? 'All horses finished!' : 'Race auto-finished after 30 seconds'
+        
+        // Create final results
+        const results = horses.map((horse: any, index: number) => {
+          const progress = raceProgress[horse.id]
+          return {
+            id: horse.id,
+            name: horse.name,
+            position: progress?.position || 0,
+            finishTime: progress?.finishTime || newRaceTimer,
+            placement: progress?.finished ? 
+              finishedHorses.findIndex(f => f.id === horse.id) + 1 : 
+              horses.length
+          }
+        }).sort((a, b) => {
+          if (a.placement !== b.placement) return a.placement - b.placement
+          return a.finishTime - b.finishTime
+        })
+        
+        updateData.race_results = results
       }
     }
 
@@ -148,7 +263,8 @@ Deno.serve(async (req) => {
         current_state: raceState.race_state,
         current_timer: raceState.pre_race_timer,
         countdown_timer: raceState.countdown_timer,
-        race_timer: raceState.race_timer
+        race_timer: raceState.race_timer,
+        race_progress: raceState.race_progress
       }),
       { 
         status: 200,
