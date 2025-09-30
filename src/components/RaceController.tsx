@@ -323,7 +323,7 @@ export default function RaceController({
     console.log("🏁 Creating finish line detector for", horses.length, "horses");
 
     const finishLineDetector = {
-      finishedHorses: [],
+      finishedHorses: [] as Array<{ id: string; name: string; position: number; finishTime: number }>,
       allHorsesFinished: false,
       totalHorses: horses.length, // Store the horse count
       recordFinish: (horseId: string, horseName: string, finishTime: number) => {
