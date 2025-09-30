@@ -90,7 +90,7 @@ export function useRaceSync() {
               table: 'race_state'
             },
             (payload) => {
-              console.log('���� Real-time update received:', payload);
+              console.log('📡 Real-time update received:', payload);
               if (payload.new && typeof payload.new === 'object') {
                 setSyncedData(payload.new as SyncedRaceData);
               }
@@ -255,8 +255,8 @@ export function useRaceSync() {
         timerInterval = setInterval(async () => {
           try {
             console.log('📡 Calling server timer function...');
-            // Call the server-side timer function with correct URL
-            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/supabase-functions-race-timer`, {
+            // Call the server-side timer function with correct URL format
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/race-timer`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
