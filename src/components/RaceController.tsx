@@ -421,7 +421,7 @@ export default function RaceController({
 
   // Reset finish line detector when race starts
   useEffect(() => {
-    if (isRacing && window.finishLineDetector) {
+    if (isRacing && window.finishLineDetector && window.finishLineDetector.reset) {
       window.finishLineDetector.reset();
     }
   }, [isRacing]);
