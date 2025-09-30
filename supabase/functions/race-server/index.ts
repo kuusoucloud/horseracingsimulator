@@ -228,12 +228,12 @@ async function updateRaceState() {
         const currentPosition = horseProgress.position || 0
         const horseELO = horse.elo || 1200
         
-        // Convert ELO to speed (higher ELO = faster) - MUCH FASTER SPEEDS
+        // Convert ELO to speed (higher ELO = faster) - ORIGINAL SPEEDS
         const eloNormalized = Math.max(0, Math.min(1, (horseELO - 400) / 1700))
-        const baseSpeed = 40 + (eloNormalized * 60) // 40-100 meters per second (much faster!)
+        const baseSpeed = 15 + (eloNormalized * 25) // 15-40 meters per second (original)
         
-        // Add randomness for exciting races
-        const randomFactor = 0.8 + Math.random() * 0.4
+        // Add randomness for exciting races - ORIGINAL RANDOMNESS
+        const randomFactor = 0.7 + Math.random() * 0.6
         const currentSpeed = baseSpeed * randomFactor
         
         // Calculate new position (1 second intervals)
@@ -270,10 +270,10 @@ async function updateRaceState() {
       }
       message = `Race timer updated to ${newRaceTimer}s`
 
-      // Check if race should finish
-      if (allFinished || newRaceTimer >= 30) {
+      // Check if race should finish - ORIGINAL TIMING
+      if (allFinished || newRaceTimer >= 80) {
         updateData.race_state = 'finished'
-        message = allFinished ? 'All horses finished!' : 'Race auto-finished after 30 seconds'
+        message = allFinished ? 'All horses finished!' : 'Race auto-finished after 80 seconds'
         
         // Create final results
         const results = horses.map((horse: any, index: number) => {
@@ -300,14 +300,14 @@ async function updateRaceState() {
         
         updateData.race_results = results
         
-        // Determine if we should show photo finish (close race)
+        // Determine if we should show photo finish (close race) - ORIGINAL THRESHOLD
         const topThree = results.slice(0, 3)
         const firstFinishTime = topThree[0]?.finishTime || 0
         const thirdFinishTime = topThree[2]?.finishTime || 0
         const timeDifference = thirdFinishTime - firstFinishTime
         
-        // Show photo finish if top 3 are within 1 second of each other
-        if (timeDifference <= 1 && topThree.length >= 3) {
+        // Show photo finish if top 3 are within 0.5 seconds of each other - ORIGINAL
+        if (timeDifference <= 0.5 && topThree.length >= 3) {
           updateData.show_photo_finish = true
           updateData.photo_finish_results = topThree
           console.log('📸 Close race detected - showing photo finish')
