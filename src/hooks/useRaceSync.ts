@@ -102,7 +102,7 @@ export function useRaceSync() {
           race_progress: {},
           pre_race_timer: 10,
           race_results: [],
-          timer_owner: null
+          timer_owner: undefined
         });
       
       if (error) throw error;
@@ -114,7 +114,7 @@ export function useRaceSync() {
         race_progress: {},
         pre_race_timer: 10,
         race_results: [],
-        timer_owner: null
+        timer_owner: undefined
       });
       
     } catch (error) {
