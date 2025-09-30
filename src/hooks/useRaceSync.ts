@@ -87,7 +87,7 @@ export function useRaceSync() {
               table: 'race_state'
             },
             (payload) => {
-              console.log('🔄 Real-time update received:', payload);
+              console.log('���� Real-time update received:', payload);
               if (payload.new && typeof payload.new === 'object') {
                 setSyncedData(payload.new as SyncedRaceData);
               }
@@ -164,6 +164,19 @@ export function useRaceSync() {
     }
 
     try {
+      // Check if there's already an active race first
+      const { data: existingRace, error: checkError } = await supabase
+        .from('race_state')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (!checkError && existingRace && existingRace.horses && existingRace.horses.length > 0) {
+        console.log('🏇 Race already exists, using existing race:', existingRace);
+        setSyncedData(existingRace as SyncedRaceData);
+        return;
+      }
+
       // Delete all existing race states
       const { error: deleteError } = await supabase
         .from('race_state')
@@ -264,18 +277,24 @@ export function useRaceSync() {
     const manageTimer = async () => {
       if (!supabase || !syncedData) return;
       
-      if (syncedData.race_state === 'pre-race' && syncedData.horses?.length > 0) {
+      if (syncedData.race_state === 'pre-race' && syncedData.horses?.length > 0 && syncedData.pre_race_timer > 0) {
         // Try to claim timer ownership
         const hasOwnership = await claimTimerOwnership();
         
-        if (hasOwnership && syncedData.pre_race_timer > 0) {
+        if (hasOwnership) {
           console.log(`⏰ Timer owner managing countdown: ${syncedData.pre_race_timer}`);
-          preRaceInterval = setTimeout(() => {
-            updateRaceState({ pre_race_timer: syncedData.pre_race_timer - 1 });
+          preRaceInterval = setTimeout(async () => {
+            const newTimer = syncedData.pre_race_timer - 1;
+            console.log(`⏰ Updating timer to: ${newTimer}`);
+            await updateRaceState({ pre_race_timer: newTimer });
           }, 1000);
-        } else if (hasOwnership && syncedData.pre_race_timer === 0) {
+        }
+      } else if (syncedData.race_state === 'pre-race' && syncedData.pre_race_timer === 0) {
+        // Try to claim timer ownership for state change
+        const hasOwnership = await claimTimerOwnership();
+        if (hasOwnership) {
           console.log('⏰ Timer owner starting countdown phase');
-          updateRaceState({ race_state: 'countdown' });
+          await updateRaceState({ race_state: 'countdown' });
         }
       }
     };
@@ -287,7 +306,7 @@ export function useRaceSync() {
         clearTimeout(preRaceInterval);
       }
     };
-  }, [syncedData?.race_state, syncedData?.pre_race_timer, syncedData?.horses?.length, claimTimerOwnership, updateRaceState]);
+  }, [syncedData?.race_state, syncedData?.pre_race_timer, syncedData?.horses?.length]);
 
   // Cleanup on unmount
   useEffect(() => {

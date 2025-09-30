@@ -39,19 +39,31 @@ export default function Home() {
   const raceState = isConnected ? (syncedData?.race_state || 'pre-race') : localRaceState;
   const preRaceTimer = isConnected ? (syncedData?.pre_race_timer || 10) : localPreRaceTimer;
 
-  // Initialize race when component mounts and no horses exist
+  // Initialize race when component mounts - only if no race exists
   useEffect(() => {
-    if (isConnected && horses.length === 0) {
-      // Only initialize if we're connected and there's no existing race
-      const newHorses = generateRandomHorses(8);
-      initializeNewRace(newHorses);
-    } else if (!isConnected && localHorses.length === 0) {
-      // Offline mode - only initialize local state if empty
-      setLocalHorses(generateRandomHorses(8));
-      setLocalRaceState('pre-race');
-      setLocalPreRaceTimer(10);
-    }
-  }, [isConnected, initializeNewRace]);
+    const initializeRaceIfNeeded = async () => {
+      if (isConnected) {
+        // Wait a bit for syncedData to load
+        setTimeout(() => {
+          if (!syncedData || syncedData.horses.length === 0) {
+            console.log('🏇 No existing race found, creating new one...');
+            const newHorses = generateRandomHorses(8);
+            initializeNewRace(newHorses);
+          } else {
+            console.log('🏇 Using existing race with', syncedData.horses.length, 'horses');
+          }
+        }, 1000);
+      } else if (!isConnected && localHorses.length === 0) {
+        // Offline mode - only initialize local state if empty
+        console.log('🏇 Offline mode - creating local race');
+        setLocalHorses(generateRandomHorses(8));
+        setLocalRaceState('pre-race');
+        setLocalPreRaceTimer(10);
+      }
+    };
+
+    initializeRaceIfNeeded();
+  }, [isConnected]); // Only depend on connection status
 
   // Handle race progress updates from RaceController
   const handleRaceProgress = (progress: Array<{
