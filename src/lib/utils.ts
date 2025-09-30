@@ -15,12 +15,20 @@ export interface HorseRank {
 }
 
 export function getHorseRank(elo: number): HorseRank {
-  if (elo >= 1900) {
+  if (elo >= 2000) {
+    return {
+      name: "Mythical",
+      color: "#FF1493", // Deep Pink with gold shimmer effect
+      textColor: "text-pink-400",
+      bgColor: "bg-gradient-to-r from-pink-500/20 to-yellow-500/20",
+      borderColor: "border-pink-400/60"
+    };
+  } else if (elo >= 1900) {
     return {
       name: "Legendary",
       color: "#FFD700", // Gold
       textColor: "text-yellow-400",
-      bgColor: "bg-yellow-500/20",
+      bgColor: "bg-gradient-to-r from-yellow-500/20 to-orange-500/20",
       borderColor: "border-yellow-400/50"
     };
   } else if (elo >= 1800) {
@@ -96,4 +104,20 @@ export function getHorseRank(elo: number): HorseRank {
       borderColor: "border-red-400/50"
     };
   }
+}
+
+// Barrier/Lane color system - traditional racing colors
+export function getBarrierColor(lane: number): string {
+  const barrierColors = [
+    '#FF0000', // Lane 1 - Red
+    '#0000FF', // Lane 2 - Blue  
+    '#FFFFFF', // Lane 3 - White
+    '#FFFF00', // Lane 4 - Yellow
+    '#00FF00', // Lane 5 - Green
+    '#FFA500', // Lane 6 - Orange
+    '#800080', // Lane 7 - Purple
+    '#FFC0CB', // Lane 8 - Pink
+  ];
+  
+  return barrierColors[(lane - 1) % barrierColors.length] || '#FF0000';
 }

@@ -1,302 +1,266 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect } from 'react';
+import { generateRandomHorses, updateEloRatings, getStoredEloRatings, updateHorseStats } from '@/data/horses';
 import { Horse, RaceResult, RaceState } from '@/types/horse';
-import { getRandomHorses, calculateOddsFromELO } from '@/data/horses';
 import HorseLineup from '@/components/HorseLineup';
 import RaceTrack from '@/components/RaceTrack';
 import RaceController from '@/components/RaceController';
 import RaceResults from '@/components/RaceResults';
-
-// Generate random horse attributes
-function generateHorseAttributes(horseData: any): Horse {
-  const baseSpeed = 70 + Math.random() * 25; // 70-95
-  const baseStamina = 70 + Math.random() * 25; // 70-95
-  const baseAcceleration = 70 + Math.random() * 25; // 70-95
-  
-  // ELO influences attributes
-  const eloFactor = (horseData.elo - 1000) / 1000; // -0.68 to 0.97
-  const speed = Math.max(50, Math.min(100, baseSpeed + (eloFactor * 15)));
-  const stamina = Math.max(50, Math.min(100, baseStamina + (eloFactor * 15)));
-  const acceleration = Math.max(50, Math.min(100, baseAcceleration + (eloFactor * 15)));
-  
-  return {
-    id: Math.random().toString(36).substr(2, 9),
-    name: horseData.name,
-    speed: Math.round(speed),
-    stamina: Math.round(stamina),
-    acceleration: Math.round(acceleration),
-    odds: 0, // Will be calculated later
-    color: `hsl(${Math.random() * 360}, 70%, 45%)`,
-    elo: horseData.elo, // Include ELO from database
-    sprintStartPercent: 40 + Math.random() * 35, // 40-75%
-    earlyAdvantage: 0.9 + Math.random() * 0.3, // 0.9-1.2x
-    isEarlyRunner: Math.random() < 0.3, // 30% chance
-    lane: 0 // Will be set later
-  };
-}
+import EloLeaderboard from '@/components/EloLeaderboard';
+import PhotoFinish from '@/components/PhotoFinish';
 
 export default function Home() {
   const [horses, setHorses] = useState<Horse[]>([]);
-  const [raceState, setRaceState] = useState<RaceState>("pre-race");
+  const [raceState, setRaceState] = useState<RaceState>('pre-race');
+  const [raceResults, setRaceResults] = useState<RaceResult[] | null>(null);
+  const [eloRefreshTrigger, setEloRefreshTrigger] = useState(0);
+  const [preRaceTimer, setPreRaceTimer] = useState(10); // Initial 10-second timer
   const [raceProgress, setRaceProgress] = useState<Array<{
     id: string;
     name: string;
     position: number;
     speed: number;
+    horse?: Horse;
   }>>([]);
-  const [raceResults, setRaceResults] = useState<RaceResult[]>([]);
-  const [photoFinish, setPhotoFinish] = useState<{
-    isActive: boolean;
-    horses: Array<{ id: string; name: string; position: number }>;
-  } | undefined>();
-  const [autoStartTimer, setAutoStartTimer] = useState<number>(10);
-  const [autoCloseTimer, setAutoCloseTimer] = useState<number>(15);
+  
+  // Photo Finish states
+  const [showPhotoFinish, setShowPhotoFinish] = useState(false);
+  const [photoFinishResults, setPhotoFinishResults] = useState<RaceResult[] | null>(null);
 
-  // Generate horses on component mount
-  useEffect(() => {
-    const horseData = getRandomHorses(8);
-    const generatedHorses = horseData.map((data, index) => ({
-      ...generateHorseAttributes(data),
-      lane: index + 1
-    }));
-    
-    // Calculate odds based on ELO
-    const oddsData = calculateOddsFromELO(horseData);
-    const horsesWithOdds = generatedHorses.map(horse => ({
-      ...horse,
-      odds: oddsData.find(o => o.name === horse.name)?.odds || 5.0
-    }));
-    
-    setHorses(horsesWithOdds);
-    
-    // Immediately set initial race progress so horses appear at starting line
-    const initialProgress = horsesWithOdds.map(horse => ({
-      id: horse.id,
-      name: horse.name,
-      position: 0, // Start at position 0 (starting line)
-      speed: 0,
-      horse: horse // Include the full horse object to maintain lane info
-    }));
-    setRaceProgress(initialProgress);
-    console.log("Set initial race progress:", initialProgress);
-  }, []);
-
-  // Auto-start timer for pre-race state
-  useEffect(() => {
-    if (raceState === "pre-race" && autoStartTimer > 0) {
-      const timer = setTimeout(() => {
-        setAutoStartTimer(prev => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (raceState === "pre-race" && autoStartTimer === 0) {
-      handleStartRace();
-    }
-  }, [raceState, autoStartTimer]);
-
-  // Auto-close timer for race results
-  useEffect(() => {
-    if (raceState === "finished" && autoCloseTimer > 0) {
-      const timer = setTimeout(() => {
-        setAutoCloseTimer(prev => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (raceState === "finished" && autoCloseTimer === 0) {
-      handleNewRace();
-    }
-  }, [raceState, autoCloseTimer]);
-
-  // Handle race state transitions
-  useEffect(() => {
-    if (raceState === "countdown") {
-      console.log("Race state is countdown, will transition to racing in 10 seconds");
-      // After 10 seconds, transition to racing
-      const timer = setTimeout(() => {
-        console.log("Transitioning from countdown to racing");
-        setRaceState("racing");
-      }, 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [raceState]);
-
+  // Handle race progress updates from RaceController
   const handleRaceProgress = (progress: Array<{
     id: string;
     name: string;
     position: number;
     speed: number;
   }>) => {
-    setRaceProgress(progress);
+    const progressWithHorses = progress.map(p => ({
+      ...p,
+      horse: horses.find(h => h.id === p.id)
+    }));
+    setRaceProgress(progressWithHorses);
+  };
+
+  // Generate initial horses
+  useEffect(() => {
+    const newHorses = generateRandomHorses(8);
+    setHorses(newHorses);
+  }, []);
+
+  // Pre-race timer effect - starts immediately when horses are loaded
+  useEffect(() => {
+    let preRaceInterval: NodeJS.Timeout;
+    
+    if (raceState === 'pre-race' && horses.length > 0 && preRaceTimer > 0) {
+      console.log('Pre-race timer:', preRaceTimer);
+      preRaceInterval = setTimeout(() => {
+        setPreRaceTimer(prev => prev - 1);
+      }, 1000);
+    } else if (raceState === 'pre-race' && preRaceTimer === 0) {
+      console.log('Pre-race timer finished, starting countdown!');
+      setRaceState('countdown');
+    }
+    
+    return () => {
+      if (preRaceInterval) {
+        clearTimeout(preRaceInterval);
+      }
+    };
+  }, [raceState, horses.length, preRaceTimer]);
+
+  // Function to check if top 3 horses finished close together (within 0.1 seconds)
+  const isPhotoFinishNeeded = (results: RaceResult[]): boolean => {
+    if (results.length < 3) return false;
+    
+    // Sort by placement to get top 3
+    const sortedResults = [...results].sort((a, b) => a.placement - b.placement);
+    const top3 = sortedResults.slice(0, 3);
+    
+    // Check if any of the top 3 finished within 0.1 seconds of each other
+    for (let i = 0; i < top3.length - 1; i++) {
+      const timeDiff = Math.abs(top3[i].finishTime - top3[i + 1].finishTime);
+      if (timeDiff <= 0.1) {
+        console.log(`🏁 Photo finish needed! ${top3[i].name} and ${top3[i + 1].name} finished ${timeDiff.toFixed(6)}s apart`);
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  // Reset pre-race timer when starting a new race
+  const handleNewRace = () => {
+    console.log('Starting new race...');
+    setRaceResults(null);
+    setPhotoFinishResults(null);
+    setShowPhotoFinish(false);
+    setRaceState('pre-race');
+    setPreRaceTimer(10); // Reset to 10 seconds
+    generateNewHorses();
+  };
+
+  const generateNewHorses = () => {
+    const newHorses = generateRandomHorses(8);
+    setHorses(newHorses);
   };
 
   const handleRaceComplete = (results: RaceResult[]) => {
-    // Check for photo finish based on finish times of top finishers
-    const topThree = results.slice(0, 3);
+    console.log('Race completed with results:', results);
     
-    // Only check photo finish if we have at least 2 horses that actually finished
-    const finishedHorses = topThree.filter(h => h.finalPosition >= 1200);
+    // Always process ELO first
+    const processedResults = processRaceResultsData(results);
     
-    if (finishedHorses.length >= 2) {
-      // Calculate the gap between 1st and 2nd place finish times
-      const firstPlaceTime = finishedHorses[0].finishTime || 0;
-      const secondPlaceTime = finishedHorses[1].finishTime || 0;
-      const finishTimeGap = Math.abs(secondPlaceTime - firstPlaceTime);
-      
-      // Photo finish if 1st and 2nd place finish within 150ms of each other
-      if (finishTimeGap <= 150) {
-        setPhotoFinish({
-          isActive: true,
-          horses: finishedHorses.slice(0, 2).map(h => ({
-            id: h.id,
-            name: h.name,
-            position: h.finalPosition || 1200
-          }))
-        });
-        
-        // Show photo finish for 3 seconds, then show results
-        setTimeout(() => {
-          setPhotoFinish(undefined);
-          setRaceResults(results);
-          setRaceState("finished");
-          setAutoCloseTimer(15);
-        }, 3000);
-      } else {
-        // No photo finish, show results immediately
-        setRaceResults(results);
-        setRaceState("finished");
-        setPhotoFinish(undefined);
-        setAutoCloseTimer(15);
-      }
+    // Check if photo finish is needed
+    if (isPhotoFinishNeeded(results)) {
+      console.log('🏁 Triggering photo finish sequence...');
+      setPhotoFinishResults(processedResults);
+      setShowPhotoFinish(true);
+      // Don't set raceState to 'finished' yet - wait for photo finish to complete
     } else {
-      // Not enough horses finished for photo finish
-      setRaceResults(results);
-      setRaceState("finished");
-      setPhotoFinish(undefined);
-      setAutoCloseTimer(15);
+      console.log('🏁 No photo finish needed, showing results directly');
+      setRaceResults(processedResults);
+      setRaceState('finished');
+      setEloRefreshTrigger(prev => prev + 1);
     }
   };
 
-  const handleStartRace = () => {
-    console.log("handleStartRace called, setting state to countdown"); // Debug log
-    setRaceState("countdown");
-    setRaceResults([]);
-    setPhotoFinish(undefined);
-    // Don't clear race progress - keep horses at starting line
-    // setRaceProgress([]);
+  const handlePhotoFinishComplete = (finalResults: RaceResult[]) => {
+    console.log('📸 Photo finish complete, showing final results...');
+    setShowPhotoFinish(false);
+    // Results already have ELO changes calculated
+    setRaceResults(finalResults);
+    setRaceState('finished');
+    setEloRefreshTrigger(prev => prev + 1);
   };
 
-  const handleNewRace = () => {
-    // Generate new horses
-    const horseData = getRandomHorses(8);
-    const generatedHorses = horseData.map((data, index) => ({
-      ...generateHorseAttributes(data),
-      lane: index + 1
-    }));
+  const processRaceResultsData = (results: RaceResult[]) => {
+    // Get ELO ratings before updating them
+    const beforeRatings = getStoredEloRatings();
     
-    const oddsData = calculateOddsFromELO(horseData);
-    const horsesWithOdds = generatedHorses.map(horse => ({
-      ...horse,
-      odds: oddsData.find(o => o.name === horse.name)?.odds || 5.0
+    // Update ELO ratings
+    console.log('🏁 Race finished! Updating ELO ratings...');
+    const eloData = results.map(horse => ({
+      name: horse.name,
+      placement: horse.placement
     }));
+    updateEloRatings(eloData);
     
-    setHorses(horsesWithOdds);
-    setRaceState("pre-race");
-    setRaceProgress([]);
-    setRaceResults([]);
-    setPhotoFinish(undefined);
-    // Reset timers
-    setAutoStartTimer(10);
-    setAutoCloseTimer(15);
+    // Update horse statistics (wins and form)
+    console.log('📊 Updating horse statistics...');
+    updateHorseStats(eloData);
+    
+    // Get ELO ratings after updating them
+    const afterRatings = getStoredEloRatings();
+    
+    // Calculate ELO changes and add them to results
+    const resultsWithEloChanges = results.map(horse => {
+      const horseName = horse.horse?.name || horse.name;
+      const beforeElo = beforeRatings[horseName] || 500;
+      const afterElo = afterRatings[horseName] || 500;
+      const change = afterElo - beforeElo;
+      
+      return {
+        ...horse,
+        eloChange: {
+          before: beforeElo,
+          after: afterElo,
+          change: Math.round(change)
+        }
+      };
+    });
+    
+    return resultsWithEloChanges;
+  };
+
+  // Keep the old function for non-photo finish races
+  const processRaceResults = (results: RaceResult[]) => {
+    const processedResults = processRaceResultsData(results);
+    setRaceResults(processedResults);
+    setRaceState('finished');
+    setEloRefreshTrigger(prev => prev + 1);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-800 to-gray-900">
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Top Row: Horse Lineup + Race Track */}
+        <div className="grid grid-cols-1 lg:grid-cols-7 gap-6 mb-6">
           {/* Horse Lineup */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-2">
             <HorseLineup horses={horses} />
           </div>
-
-          {/* Main Race Area */}
-          <div className="lg:col-span-3 flex flex-col h-[800px]">
-            {/* Race Controller - Fixed height */}
-            <div className="flex-shrink-0 mb-4">
-              <RaceController
-                horses={horses}
-                onRaceProgress={handleRaceProgress}
-                onRaceComplete={handleRaceComplete}
-                onStartRace={handleStartRace}
-                raceState={raceState}
-                autoStartTimer={autoStartTimer}
-              />
-            </div>
-
-            {/* 3D Race Track */}
-            <div className="flex-1 min-h-0 relative">
-              <RaceTrack
-                progress={raceProgress}
-                isRacing={raceState === "racing" || raceState === "countdown"}
-                raceState={raceState}
-              />
-            </div>
-
-            {/* Live Standings - Below 3D view, compact design */}
-            {raceState === "racing" && horses && horses.length > 0 && (
-              <div className="flex-shrink-0 mt-2 relative overflow-hidden max-h-32">
-                {/* Glassmorphism container */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20 rounded-lg shadow-2xl">
-                  {/* Animated gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-orange-500/10 rounded-lg" />
-                  
-                  {/* Glow effects */}
-                  <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-yellow-500/20 rounded-lg blur-xl opacity-50" />
-                </div>
-                
-                <div className="relative z-10 p-3 h-full overflow-y-auto">
-                  <h3 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400 mb-2">🏁 Live Standings</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {horses
-                      .map(horse => ({
-                        ...horse,
-                        currentPosition: raceProgress.find(p => p.id === horse.id)?.position || 0,
-                        metres: Math.round(raceProgress.find(p => p.id === horse.id)?.position || 0),
-                        percentage: Math.round(((raceProgress.find(p => p.id === horse.id)?.position || 0) / 1200) * 100)
-                      }))
-                      .sort((a, b) => b.currentPosition - a.currentPosition)
-                      .map((horse, index) => (
-                        <div key={horse.id} className="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-md px-2 py-1 shadow-sm min-w-0 flex-1">
-                          <div className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs ${
-                            index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-black' :
-                            index === 1 ? 'bg-gradient-to-r from-gray-300 to-gray-500 text-black' :
-                            index === 2 ? 'bg-gradient-to-r from-amber-600 to-amber-800 text-white' :
-                            'bg-gradient-to-r from-slate-600 to-slate-800 text-white'
-                          }`}>
-                            {index + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-xs text-white truncate">{horse.name}</div>
-                            <div className="text-xs text-amber-300">{horse.metres}m / 1200m</div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Race Results */}
-            {raceState === "finished" && raceResults.length > 0 && (
-              <div className="flex-shrink-0 mt-4">
-                <RaceResults
-                  results={raceResults}
-                  onNewRace={handleNewRace}
-                  autoCloseTimer={autoCloseTimer}
-                />
+          
+          {/* Race Track */}
+          <div className="lg:col-span-5">
+            <RaceTrack 
+              horses={horses} 
+              raceState={raceState}
+              progress={raceProgress.length > 0 ? raceProgress : horses.map(horse => ({
+                id: horse.id,
+                name: horse.name,
+                position: 0,
+                speed: 0,
+                horse: horse
+              }))}
+              isRacing={raceState === 'racing'}
+            />
+          </div>
+        </div>
+        
+        {/* Second Row: ELO Leaderboard + Race Controller */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+          {/* ELO Leaderboard */}
+          <div className="lg:col-span-4">
+            <EloLeaderboard refreshTrigger={eloRefreshTrigger} />
+          </div>
+          
+          {/* Race Controller */}
+          <div className="lg:col-span-1">
+            <RaceController
+              horses={horses}
+              raceState={raceState}
+              onRaceStateChange={setRaceState}
+              onRaceComplete={handleRaceComplete}
+              onRaceProgress={handleRaceProgress}
+              preRaceTimer={preRaceTimer}
+            />
+            
+            {/* New Race Button */}
+            {raceState === 'finished' && (
+              <div className="text-center mt-4">
+                <button
+                  onClick={handleNewRace}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors text-sm w-full"
+                >
+                  🏁 New Race
+                </button>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Photo Finish Component - shows when close finish detected */}
+      {showPhotoFinish && photoFinishResults && (
+        <PhotoFinish
+          finishingHorses={photoFinishResults.slice(0, 3)} // Only show top 3 for photo finish
+          onPhotoFinishComplete={handlePhotoFinishComplete}
+          isVisible={showPhotoFinish}
+        />
+      )}
+
+      {/* Race Results Modal - show after photo finish (if any) completes */}
+      {raceState === 'finished' && raceResults && !showPhotoFinish && (
+        <RaceResults
+          results={raceResults}
+          isOpen={true}
+          onClose={() => {
+            setRaceResults(null);
+          }}
+          onNewRace={handleNewRace}
+        />
+      )}
     </div>
   );
 }

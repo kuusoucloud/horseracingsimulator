@@ -7,6 +7,7 @@ export interface Horse {
   odds: number;
   color: string;
   elo: number; // Added ELO rating
+  description?: string; // Added description field
   sprintStartPercent?: number; // When the horse starts their final sprint (40-75%)
   earlyAdvantage?: number; // Early race speed multiplier
   isEarlyRunner?: boolean; // Whether this horse performs well early
@@ -28,10 +29,17 @@ export interface Bet {
 }
 
 export interface RaceResult {
-  horse: Horse;
+  horse?: Horse;
+  name: string;
   position: number;
+  placement: number;
   finishTime: number;
   gap: string;
+  eloChange?: {
+    before: number;
+    after: number;
+    change: number;
+  };
 }
 
 export type RaceState = "pre-race" | "countdown" | "racing" | "finished";
