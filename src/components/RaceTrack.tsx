@@ -1706,12 +1706,12 @@ export default function RaceTrack({
             const horseData: HorseData = {
               ...horse,
               lane: actualLane,
-              color: horse.color || "#8B4513",
-              elo: horse.elo || 1000,
-              stamina: horse.stamina || 50,
-              acceleration: horse.acceleration || 50,
-              odds: horse.odds || 5.0,
-              sprintStartPercent: horse.sprintStartPercent || 60,
+              color: ('color' in horse ? horse.color : null) || "#8B4513",
+              elo: ('elo' in horse ? horse.elo : null) || 1000,
+              stamina: ('stamina' in horse ? horse.stamina : null) || 50,
+              acceleration: ('acceleration' in horse ? horse.acceleration : null) || 50,
+              odds: ('odds' in horse ? horse.odds : null) || 5.0,
+              sprintStartPercent: ('sprintStartPercent' in horse ? horse.sprintStartPercent : null) || 60,
             };
 
             return (
