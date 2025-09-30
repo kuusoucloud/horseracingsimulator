@@ -243,6 +243,13 @@ export function useRaceSync() {
     let timerInterval: NodeJS.Timeout;
     
     const startServerTimer = () => {
+      console.log('🔍 Timer check - supabase:', !!supabase, 'syncedData:', !!syncedData);
+      console.log('🔍 syncedData details:', {
+        horses: syncedData?.horses?.length,
+        raceState: syncedData?.race_state,
+        validStates: syncedData?.race_state ? ['pre-race', 'countdown', 'racing'].includes(syncedData.race_state) : false
+      });
+      
       if (!supabase || !syncedData) {
         console.log('🚫 Cannot start timer - missing supabase or syncedData:', { supabase: !!supabase, syncedData: !!syncedData });
         return;
@@ -294,7 +301,7 @@ export function useRaceSync() {
         clearInterval(timerInterval);
       }
     };
-  }, [syncedData?.race_state, syncedData?.horses?.length]);
+  }, [syncedData?.race_state, syncedData?.horses?.length, supabase]);
 
   // Cleanup on unmount
   useEffect(() => {
