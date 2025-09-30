@@ -269,21 +269,16 @@ export function useRaceSync() {
         const callServerTimer = async () => {
           try {
             console.log('📡 Calling server timer function...');
-            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/race-timer`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json',
-              },
+            
+            // Use Supabase functions.invoke instead of direct fetch
+            const { data, error } = await supabase.functions.invoke('supabase-functions-race-timer', {
+              body: {},
             });
 
-            if (!response.ok) {
-              console.error('❌ Server timer request failed:', response.status, response.statusText);
-              const errorText = await response.text();
-              console.error('Error details:', errorText);
+            if (error) {
+              console.error('❌ Server timer request failed:', error);
             } else {
-              const result = await response.json();
-              console.log('⏰ Server timer response:', result);
+              console.log('⏰ Server timer response:', data);
             }
           } catch (error) {
             console.error('❌ Error calling server timer:', error);
