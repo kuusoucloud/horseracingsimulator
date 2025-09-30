@@ -34,6 +34,9 @@ export default function Home() {
   const showPhotoFinishFromServer = syncedData?.show_photo_finish || false;
   const showResultsFromServer = syncedData?.show_results || false;
   const photoFinishResultsFromServer = syncedData?.photo_finish_results || [];
+  
+  // Server-managed weather conditions
+  const serverWeatherConditions = syncedData?.weather_conditions;
 
   // Convert server race progress to display format
   const displayProgress = Object.entries(raceProgress).map(([horseId, data]: [string, any]) => ({
@@ -140,6 +143,7 @@ export default function Home() {
                 horse: horse
               }))}
               isRacing={raceState === 'racing'}
+              serverWeatherConditions={serverWeatherConditions}
             />
           </div>
         </div>

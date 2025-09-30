@@ -24,6 +24,46 @@ interface RaceProgress {
   }
 }
 
+interface WeatherConditions {
+  timeOfDay: "day" | "night";
+  weather: "clear" | "rain";
+  skyColor: string;
+  ambientIntensity: number;
+  directionalIntensity: number;
+  trackColor: string;
+  grassColor: string;
+}
+
+function generateWeatherConditions(): WeatherConditions {
+  // Twilight is now 10% chance
+  const isTwilight = Math.random() < 0.1;
+
+  // Rain is now 10% chance
+  const isRainy = Math.random() < 0.1;
+
+  if (isTwilight) {
+    return {
+      timeOfDay: "night",
+      weather: isRainy ? "rain" : "clear",
+      skyColor: isRainy ? "#4a4a6b" : "#6a5acd",
+      ambientIntensity: 0.6,
+      directionalIntensity: 0.8,
+      trackColor: isRainy ? "#5d4e37" : "#8B4513",
+      grassColor: isRainy ? "#2d5a2d" : "#228b22",
+    };
+  } else {
+    return {
+      timeOfDay: "day",
+      weather: isRainy ? "rain" : "clear",
+      skyColor: isRainy ? "#6b7280" : "#87ceeb",
+      ambientIntensity: 0.4,
+      directionalIntensity: isRainy ? 0.7 : 1.0,
+      trackColor: isRainy ? "#5d4e37" : "#8B4513",
+      grassColor: isRainy ? "#2d5a2d" : "#32cd32",
+    };
+  }
+}
+
 // Global race loop state
 let isRaceLoopRunning = false;
 let raceLoopInterval: number | null = null;
@@ -39,10 +79,13 @@ async function startNewRace() {
   // Generate new horses
   const horses = generateRandomHorses(8)
   
+  // Generate weather for this race (server-side)
+  const weather = generateWeatherConditions()
+  
   // Delete existing race state
   await supabaseClient.from('race_state').delete().neq('id', '00000000-0000-0000-0000-000000000000')
   
-  // Create new race state
+  // Create new race state with weather
   const newRaceState = {
     race_state: 'pre-race',
     pre_race_timer: 10,
@@ -55,7 +98,8 @@ async function startNewRace() {
     race_results: [],
     show_photo_finish: false,
     show_results: false,
-    photo_finish_results: []
+    photo_finish_results: [],
+    weather_conditions: weather
   }
   
   const { data, error } = await supabaseClient
@@ -69,7 +113,7 @@ async function startNewRace() {
     return null
   }
   
-  console.log('✅ New race created:', data.id)
+  console.log('✅ New race created with weather:', weather.timeOfDay, weather.weather)
   return data
 }
 
@@ -329,11 +373,11 @@ function startRaceLoop() {
     return
   }
   
-  console.log('🚀 Starting autonomous race server loop...')
+  console.log('🚀 Starting optimized race server loop...')
   isRaceLoopRunning = true
   
-  // Update race state every second
-  raceLoopInterval = setInterval(updateRaceState, 1000)
+  // Update race state every 800ms for better performance while maintaining smoothness
+  raceLoopInterval = setInterval(updateRaceState, 800)
   
   // Also run immediately
   updateRaceState()

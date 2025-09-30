@@ -32,6 +32,7 @@ interface RaceTrackProps {
     horse?: Horse;
   }>;
   isRacing?: boolean;
+  serverWeatherConditions?: WeatherConditions;
 }
 
 // Weather and time system
@@ -1224,6 +1225,7 @@ export default function RaceTrack({
   raceState = "pre-race",
   progress = [],
   isRacing = false,
+  serverWeatherConditions = null,
 }: RaceTrackProps) {
   // Track dimensions - properly scaled for 1200m race
   const numHorses = Math.max(horses.length, progress.length, 8);
@@ -1240,20 +1242,17 @@ export default function RaceTrack({
           horse: horse,
         }));
 
-  // Generate weather conditions once per race - use horses array changes to trigger new weather
-  const [weatherKey, setWeatherKey] = useState(0);
-
-  // Update weather key when horses change (new race setup)
-  useEffect(() => {
-    if (horses.length > 0) {
-      setWeatherKey((prev) => prev + 1);
+  // Use server weather conditions if available, otherwise generate client-side fallback
+  const weatherConditions = useMemo(() => {
+    if (serverWeatherConditions) {
+      console.log('🌤️ Using server weather conditions:', serverWeatherConditions);
+      return serverWeatherConditions;
     }
-  }, [horses]);
-
-  const weatherConditions = useMemo(
-    () => generateWeatherConditions(),
-    [weatherKey],
-  );
+    
+    // Fallback to client-side generation (should rarely happen)
+    console.log('⚠️ No server weather found, using client fallback');
+    return generateWeatherConditions();
+  }, [serverWeatherConditions]);
 
   // Create textures only on client side
   const grassTexture = useMemo(() => createGrassTexture(), []);

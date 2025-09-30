@@ -31,6 +31,7 @@ export type Database = {
           show_results: boolean | null
           timer_owner: string | null
           updated_at: string | null
+          weather_conditions: Json | null
         }
         Insert: {
           countdown_timer?: number | null
@@ -48,6 +49,7 @@ export type Database = {
           show_results?: boolean | null
           timer_owner?: string | null
           updated_at?: string | null
+          weather_conditions?: Json | null
         }
         Update: {
           countdown_timer?: number | null
@@ -65,6 +67,7 @@ export type Database = {
           show_results?: boolean | null
           timer_owner?: string | null
           updated_at?: string | null
+          weather_conditions?: Json | null
         }
         Relationships: []
       }
