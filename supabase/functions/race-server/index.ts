@@ -87,7 +87,7 @@ async function startNewRace() {
   // Delete existing race state
   await supabaseClient.from('race_state').delete().neq('id', '00000000-0000-0000-0000-000000000000')
   
-  // Create new race state with weather
+  // Create new race state
   const newRaceState = {
     race_state: 'pre-race',
     pre_race_timer: 10,
@@ -101,7 +101,7 @@ async function startNewRace() {
     show_photo_finish: false,
     show_results: false,
     photo_finish_results: [],
-    weather_conditions: generateWeatherConditions()
+    weather_conditions: weather
   }
   
   const { data, error } = await supabaseClient
