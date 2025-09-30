@@ -83,6 +83,7 @@ async function startNewRace() {
   
   // Generate weather for this race (server-side)
   const weather = generateWeatherConditions()
+  console.log('🌤️ Generated weather conditions:', weather)
   
   // Delete existing race state
   await supabaseClient.from('race_state').delete().neq('id', '00000000-0000-0000-0000-000000000000')
@@ -116,6 +117,7 @@ async function startNewRace() {
   }
   
   console.log('✅ New race created with weather:', weather.timeOfDay, weather.weather)
+  console.log('🌤️ Weather conditions stored:', data.weather_conditions)
   return data
 }
 
@@ -433,11 +435,28 @@ Deno.serve(async (req) => {
           .limit(1)
           .single()
           
+        // Ensure weather conditions are present
+        let finalRaceState = raceState
+        if (raceState && (!raceState.weather_conditions || Object.keys(raceState.weather_conditions).length === 0)) {
+          console.log('🌤️ Missing weather conditions, generating new ones...')
+          const weather = generateWeatherConditions()
+          
+          const { data: updatedState } = await supabaseClient
+            .from('race_state')
+            .update({ weather_conditions: weather })
+            .eq('id', raceState.id)
+            .select()
+            .single()
+            
+          finalRaceState = updatedState || raceState
+          console.log('🌤️ Updated race state with weather:', weather)
+        }
+          
         return new Response(
           JSON.stringify({ 
             message: 'Race server status',
             running: isRaceLoopRunning,
-            raceState: raceState || null
+            raceState: finalRaceState || null
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
