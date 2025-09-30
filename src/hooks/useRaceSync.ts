@@ -121,7 +121,7 @@ export function useRaceSync() {
   // Release timer ownership
   const releaseTimerOwnership = useCallback(async () => {
     if (isTimerOwner.current) {
-      await updateRaceState({ timer_owner: null });
+      await updateRaceState({ timer_owner: undefined });
       isTimerOwner.current = false;
     }
   }, [updateRaceState]);
