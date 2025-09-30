@@ -216,45 +216,10 @@ export function useRaceSync() {
     }
   }, []);
 
-  // Timer ownership with better error handling
+  // Timer ownership with better error handling - SIMPLIFIED since server handles timer
   const claimTimerOwnership = useCallback(async (): Promise<boolean> => {
-    if (!supabase) return false;
-
-    try {
-      // Get current race state
-      const { data: currentData, error: selectError } = await supabase
-        .from('race_state')
-        .select('id, timer_owner')
-        .limit(1)
-        .single();
-
-      if (selectError || !currentData) {
-        console.error('Error getting current race state for timer ownership:', selectError);
-        return false;
-      }
-
-      // If no timer owner or we're already the owner
-      if (!currentData.timer_owner || currentData.timer_owner === clientId.current) {
-        const { error: updateError } = await supabase
-          .from('race_state')
-          .update({ timer_owner: clientId.current })
-          .eq('id', currentData.id);
-
-        if (updateError) {
-          console.error('Error claiming timer ownership:', updateError);
-          return false;
-        }
-
-        isTimerOwner.current = true;
-        console.log('⏰ Timer ownership claimed by:', clientId.current);
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Error checking timer ownership:', error);
-      return false;
-    }
+    // Server now handles timer, so this is simplified
+    return true;
   }, []);
 
   // Release timer ownership
@@ -270,43 +235,50 @@ export function useRaceSync() {
     }
   }, [updateRaceState]);
 
-  // Timer management - only for timer owner
+  // Server-side timer management
   useEffect(() => {
-    let preRaceInterval: NodeJS.Timeout;
+    let timerInterval: NodeJS.Timeout;
     
-    const manageTimer = async () => {
+    const startServerTimer = () => {
       if (!supabase || !syncedData) return;
       
-      if (syncedData.race_state === 'pre-race' && syncedData.horses?.length > 0 && syncedData.pre_race_timer > 0) {
-        // Try to claim timer ownership
-        const hasOwnership = await claimTimerOwnership();
+      // Only start server timer if race is in pre-race state with horses
+      if (syncedData.race_state === 'pre-race' && syncedData.horses?.length > 0) {
+        console.log('🚀 Starting server-side timer management');
         
-        if (hasOwnership) {
-          console.log(`⏰ Timer owner managing countdown: ${syncedData.pre_race_timer}`);
-          preRaceInterval = setTimeout(async () => {
-            const newTimer = syncedData.pre_race_timer - 1;
-            console.log(`⏰ Updating timer to: ${newTimer}`);
-            await updateRaceState({ pre_race_timer: newTimer });
-          }, 1000);
-        }
-      } else if (syncedData.race_state === 'pre-race' && syncedData.pre_race_timer === 0) {
-        // Try to claim timer ownership for state change
-        const hasOwnership = await claimTimerOwnership();
-        if (hasOwnership) {
-          console.log('⏰ Timer owner starting countdown phase');
-          await updateRaceState({ race_state: 'countdown' });
-        }
+        timerInterval = setInterval(async () => {
+          try {
+            // Call the server-side timer function
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/race-timer`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (!response.ok) {
+              console.error('Server timer request failed:', response.status);
+            } else {
+              const result = await response.json();
+              console.log('⏰ Server timer response:', result);
+            }
+          } catch (error) {
+            console.error('Error calling server timer:', error);
+          }
+        }, 1000); // Call server every second
       }
     };
 
-    manageTimer();
+    // Start the server timer
+    startServerTimer();
     
     return () => {
-      if (preRaceInterval) {
-        clearTimeout(preRaceInterval);
+      if (timerInterval) {
+        clearInterval(timerInterval);
       }
     };
-  }, [syncedData?.race_state, syncedData?.pre_race_timer, syncedData?.horses?.length]);
+  }, [syncedData?.race_state, syncedData?.horses?.length]);
 
   // Cleanup on unmount
   useEffect(() => {
