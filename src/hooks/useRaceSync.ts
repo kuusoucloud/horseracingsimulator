@@ -54,7 +54,12 @@ export function useRaceSync() {
   }, []);
 
   // Update race state in database
-  const updateRaceState = useCallback(async (updates: Partial<RaceStateRow>) => {
+  const updateRaceState = useCallback(async (updates: Partial<SyncedRaceData>) => {
+    if (!supabase) {
+      console.warn('Supabase client not available');
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('race_state')
@@ -68,7 +73,12 @@ export function useRaceSync() {
   }, []);
 
   // Initialize new race function
-  const initializeNewRace = useCallback(async (newHorses: Horse[]) => {
+  const initializeNewRace = useCallback(async (horses: Horse[]) => {
+    if (!supabase) {
+      console.warn('Supabase client not available');
+      return;
+    }
+
     try {
       // Delete existing race state
       await supabase.from('race_state').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -78,7 +88,7 @@ export function useRaceSync() {
         .from('race_state')
         .insert({
           race_state: 'pre-race',
-          horses: newHorses,
+          horses: horses,
           race_progress: {},
           pre_race_timer: 10,
           race_results: [],
@@ -89,7 +99,7 @@ export function useRaceSync() {
       
       // Update local state
       setRaceState('pre-race');
-      setHorses(newHorses);
+      setHorses(horses);
       setRaceProgress({});
       setPreRaceTimer(10);
       setRaceResults([]);
@@ -97,7 +107,7 @@ export function useRaceSync() {
     } catch (error) {
       console.error('Error initializing new race:', error);
     }
-  }, []);
+  }, [updateRaceState]);
 
   // Claim timer ownership
   const claimTimerOwnership = useCallback(async () => {
@@ -128,57 +138,66 @@ export function useRaceSync() {
 
   // Subscribe to real-time updates
   useEffect(() => {
-    let subscription: any;
+    let subscription: RealtimeChannel | null = null;
 
     const setupSubscription = async () => {
-      // Get initial data
-      const { data: initialData } = await supabase
-        .from('race_state')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (initialData) {
-        setRaceState(initialData.race_state);
-        setHorses(initialData.horses || []);
-        setRaceProgress(initialData.race_progress || {});
-        setPreRaceTimer(initialData.pre_race_timer || 10);
-        setRaceResults(initialData.race_results || []);
-        setIsConnected(true);
+      if (!supabase) {
+        console.warn('Supabase client not available');
+        return;
       }
 
-      // Subscribe to changes
-      subscription = supabase
-        .channel('race_state_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'race_state'
-          },
-          (payload) => {
-            if (payload.new) {
-              const newData = payload.new as RaceStateRow;
-              setRaceState(newData.race_state);
-              setHorses(newData.horses || []);
-              setRaceProgress(newData.race_progress || {});
-              setPreRaceTimer(newData.pre_race_timer || 10);
-              setRaceResults(newData.race_results || []);
-            }
-          }
-        )
-        .subscribe()
-    }
+      try {
+        // Get initial data
+        const { data: initialData } = await supabase
+          .from('race_state')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
 
-    setupSubscription()
+        if (initialData) {
+          setRaceState(initialData.race_state);
+          setHorses(initialData.horses || []);
+          setRaceProgress(initialData.race_progress || {});
+          setPreRaceTimer(initialData.pre_race_timer || 10);
+          setRaceResults(initialData.race_results || []);
+          setIsConnected(true);
+        }
+
+        // Subscribe to changes
+        subscription = supabase
+          .channel('race_state_changes')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'race_state'
+            },
+            (payload) => {
+              if (payload.new) {
+                const newData = payload.new as RaceStateRow;
+                setRaceState(newData.race_state);
+                setHorses(newData.horses || []);
+                setRaceProgress(newData.race_progress || {});
+                setPreRaceTimer(newData.pre_race_timer || 10);
+                setRaceResults(newData.race_results || []);
+              }
+            }
+          )
+          .subscribe()
+      } catch (error) {
+        console.error('Error setting up subscription:', error);
+      }
+    };
+
+    setupSubscription();
 
     return () => {
       if (subscription) {
-        subscription.unsubscribe()
+        subscription.unsubscribe();
       }
-    }
+    };
   }, []);
 
   // Timer management - only for timer owner
