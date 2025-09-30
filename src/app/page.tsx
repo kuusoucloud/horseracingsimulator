@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { generateRandomHorses, updateEloRatings, getStoredEloRatings, updateHorseStats } from '@/data/horses';
 import { Horse, RaceResult, RaceState } from '@/types/horse';
+import { useRaceSync } from '@/hooks/useRaceSync';
 import HorseLineup from '@/components/HorseLineup';
 import RaceTrack from '@/components/RaceTrack';
 import RaceController from '@/components/RaceController';
@@ -11,11 +12,11 @@ import EloLeaderboard from '@/components/EloLeaderboard';
 import PhotoFinish from '@/components/PhotoFinish';
 
 export default function Home() {
-  const [horses, setHorses] = useState<Horse[]>([]);
-  const [raceState, setRaceState] = useState<RaceState>('pre-race');
+  const { syncedData, isConnected, updateRaceState, initializeNewRace } = useRaceSync();
+  
+  // Local state for UI components
   const [raceResults, setRaceResults] = useState<RaceResult[] | null>(null);
   const [eloRefreshTrigger, setEloRefreshTrigger] = useState(0);
-  const [preRaceTimer, setPreRaceTimer] = useState(10); // Initial 10-second timer
   const [raceProgress, setRaceProgress] = useState<Array<{
     id: string;
     name: string;
@@ -27,6 +28,19 @@ export default function Home() {
   // Photo Finish states
   const [showPhotoFinish, setShowPhotoFinish] = useState(false);
   const [photoFinishResults, setPhotoFinishResults] = useState<RaceResult[] | null>(null);
+
+  // Derived state from synced data
+  const horses = syncedData?.horses || [];
+  const raceState = syncedData?.race_state || 'pre-race';
+  const preRaceTimer = syncedData?.pre_race_timer || 10;
+
+  // Initialize race when component mounts and no horses exist
+  useEffect(() => {
+    if (isConnected && (!syncedData?.horses || syncedData.horses.length === 0)) {
+      const newHorses = generateRandomHorses(8);
+      initializeNewRace(newHorses);
+    }
+  }, [isConnected, syncedData, initializeNewRace]);
 
   // Handle race progress updates from RaceController
   const handleRaceProgress = (progress: Array<{
@@ -40,26 +54,26 @@ export default function Home() {
       horse: horses.find(h => h.id === p.id)
     }));
     setRaceProgress(progressWithHorses);
+    
+    // Update race progress in database
+    const progressMap = progress.reduce((acc, p) => {
+      acc[p.id] = p.position;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    updateRaceState({ race_progress: progressMap });
   };
 
-  // Generate initial horses
-  useEffect(() => {
-    const newHorses = generateRandomHorses(8);
-    setHorses(newHorses);
-  }, []);
-
-  // Pre-race timer effect - starts immediately when horses are loaded
+  // Pre-race timer effect - managed by first connected client
   useEffect(() => {
     let preRaceInterval: NodeJS.Timeout;
     
     if (raceState === 'pre-race' && horses.length > 0 && preRaceTimer > 0) {
-      console.log('Pre-race timer:', preRaceTimer);
       preRaceInterval = setTimeout(() => {
-        setPreRaceTimer(prev => prev - 1);
+        updateRaceState({ pre_race_timer: preRaceTimer - 1 });
       }, 1000);
     } else if (raceState === 'pre-race' && preRaceTimer === 0) {
-      console.log('Pre-race timer finished, starting countdown!');
-      setRaceState('countdown');
+      updateRaceState({ race_state: 'countdown' });
     }
     
     return () => {
@@ -67,7 +81,7 @@ export default function Home() {
         clearTimeout(preRaceInterval);
       }
     };
-  }, [raceState, horses.length, preRaceTimer]);
+  }, [raceState, horses.length, preRaceTimer, updateRaceState]);
 
   // Function to check if top 3 horses finished close together (within 0.1 seconds)
   const isPhotoFinishNeeded = (results: RaceResult[]): boolean => {
@@ -95,14 +109,9 @@ export default function Home() {
     setRaceResults(null);
     setPhotoFinishResults(null);
     setShowPhotoFinish(false);
-    setRaceState('pre-race');
-    setPreRaceTimer(10); // Reset to 10 seconds
-    generateNewHorses();
-  };
-
-  const generateNewHorses = () => {
+    
     const newHorses = generateRandomHorses(8);
-    setHorses(newHorses);
+    initializeNewRace(newHorses);
   };
 
   const handleRaceComplete = (results: RaceResult[]) => {
@@ -111,16 +120,20 @@ export default function Home() {
     // Always process ELO first
     const processedResults = processRaceResultsData(results);
     
+    // Update race results in database
+    updateRaceState({ 
+      race_state: 'finished',
+      race_results: processedResults 
+    });
+    
     // Check if photo finish is needed
     if (isPhotoFinishNeeded(results)) {
       console.log('🏁 Triggering photo finish sequence...');
       setPhotoFinishResults(processedResults);
       setShowPhotoFinish(true);
-      // Don't set raceState to 'finished' yet - wait for photo finish to complete
     } else {
       console.log('🏁 No photo finish needed, showing results directly');
       setRaceResults(processedResults);
-      setRaceState('finished');
       setEloRefreshTrigger(prev => prev + 1);
     }
   };
@@ -128,9 +141,7 @@ export default function Home() {
   const handlePhotoFinishComplete = (finalResults: RaceResult[]) => {
     console.log('📸 Photo finish complete, showing final results...');
     setShowPhotoFinish(false);
-    // Results already have ELO changes calculated
     setRaceResults(finalResults);
-    setRaceState('finished');
     setEloRefreshTrigger(prev => prev + 1);
   };
 
@@ -173,13 +184,14 @@ export default function Home() {
     return resultsWithEloChanges;
   };
 
-  // Keep the old function for non-photo finish races
-  const processRaceResults = (results: RaceResult[]) => {
-    const processedResults = processRaceResultsData(results);
-    setRaceResults(processedResults);
-    setRaceState('finished');
-    setEloRefreshTrigger(prev => prev + 1);
-  };
+  // Show loading state while connecting
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">🏇 Connecting to race server...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 p-4">

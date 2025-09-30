@@ -42,6 +42,20 @@ export default function RaceController({
   const [finishedHorsesRef, setFinishedHorsesRef] = useState<Set<string>>(new Set()); // Track finished horses
   const [visualFinishedHorses, setVisualFinishedHorses] = useState<Set<string>>(new Set()); // Track 3D horses that reached finish line
 
+  // Handle race state changes from sync
+  const handleRaceStateChange = (newState: RaceState) => {
+    onRaceStateChange(newState);
+    
+    // Update synced state if this client initiated the change
+    if (typeof window !== 'undefined') {
+      // Only update if we're the active client (simple check)
+      const isActiveClient = sessionStorage.getItem('raceActiveClient') === 'true';
+      if (isActiveClient) {
+        // This would be handled by the parent component's updateRaceState
+      }
+    }
+  };
+
   // Initialize race progress when horses change
   useEffect(() => {
     if (!horses || horses.length === 0) return;
