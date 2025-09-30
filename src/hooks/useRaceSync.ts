@@ -125,11 +125,16 @@ export function useRaceSync() {
     }
 
     try {
-      const sessionId = Math.random().toString(36).substring(7);
-      const { error } = await supabase
+      // First, get current race state to check timer ownership
+      const { data, error } = await supabase
         .from('race_state')
-        .update({ timer_owner: sessionId })
-        .eq('id', 1);
+        .select('timer_owner')
+        .single();
+
+      if (error) {
+        console.error('Error checking timer ownership:', error);
+        return false;
+      }
 
       // If no owner or owner is stale, claim ownership
       if (!data?.timer_owner) {
