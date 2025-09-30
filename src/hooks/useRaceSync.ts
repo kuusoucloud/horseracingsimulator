@@ -240,6 +240,12 @@ export function useRaceSync() {
 
   // Server-side timer management
   useEffect(() => {
+    console.log('🔄 Timer useEffect triggered!', { 
+      raceState: syncedData?.race_state, 
+      horsesLength: syncedData?.horses?.length,
+      supabase: !!supabase 
+    });
+    
     let timerInterval: NodeJS.Timeout;
     
     const startServerTimer = () => {
