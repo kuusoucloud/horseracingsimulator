@@ -351,10 +351,16 @@ export default function RaceController({
           const raceResults = horses.map(horse => {
             const finishData = finishedHorses.find(f => f.id === horse.id);
             return {
-              ...horse,
+              id: horse.id, // Add required id field
+              horse: horse, // Include full horse object
               name: horse.name, // Ensure name is included
+              position: finishData ? finishData.position : horses.length, // Fallback placement
               placement: finishData ? finishData.position : horses.length, // Fallback placement
               finishTime: finishData ? finishData.finishTime : 25 + Math.random() * 5, // Fallback time
+              odds: horse.odds, // Add required odds field
+              gap: finishData && finishData.position > 1 ? 
+                `+${(finishData.finishTime - finishedHorses[0].finishTime).toFixed(3)}s` : 
+                "Winner", // Calculate gap from winner
               finalPosition: 1200 // All horses that finish get full distance
             };
           }).sort((a, b) => a.placement - b.placement);

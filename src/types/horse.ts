@@ -29,11 +29,13 @@ export interface Bet {
 }
 
 export interface RaceResult {
+  id: string; // Added missing id field
   horse?: Horse;
   name: string;
   position: number;
   placement: number;
   finishTime: number;
+  odds: number; // Added missing odds field
   gap: string;
   eloChange?: {
     before: number;
