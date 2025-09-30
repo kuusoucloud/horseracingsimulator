@@ -7,13 +7,16 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
+  // Handle CORS preflight requests first
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
-      headers: corsHeaders,
-      status: 200 
+    console.log('🔄 Handling OPTIONS preflight request')
+    return new Response(null, { 
+      status: 200,
+      headers: corsHeaders
     })
   }
+
+  console.log(`📡 Received ${req.method} request to race-timer function`)
 
   try {
     const supabaseClient = createClient(
@@ -148,6 +151,7 @@ Deno.serve(async (req) => {
         race_timer: raceState.race_timer
       }),
       { 
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
@@ -155,7 +159,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Server error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
