@@ -280,7 +280,7 @@ export default function Home() {
               onRaceComplete={handleRaceComplete}
               onRaceStateChange={handleRaceStateChange}
               raceState={raceState}
-              preRaceTimer={syncedData?.pre_race_timer || 0}
+              preRaceTimer={preRaceTimer}
               countdownTimer={syncedData?.countdown_timer || 0}
               raceTimer={syncedData?.race_timer || 0}
             />
