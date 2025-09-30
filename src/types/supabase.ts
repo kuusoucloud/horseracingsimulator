@@ -20,12 +20,15 @@ export type Database = {
           created_at: string | null
           horses: Json
           id: string
+          photo_finish_results: Json | null
           pre_race_timer: number
           race_progress: Json
           race_results: Json
           race_start_time: string | null
           race_state: string
           race_timer: number | null
+          show_photo_finish: boolean | null
+          show_results: boolean | null
           timer_owner: string | null
           updated_at: string | null
         }
@@ -34,12 +37,15 @@ export type Database = {
           created_at?: string | null
           horses?: Json
           id?: string
+          photo_finish_results?: Json | null
           pre_race_timer?: number
           race_progress?: Json
           race_results?: Json
           race_start_time?: string | null
           race_state?: string
           race_timer?: number | null
+          show_photo_finish?: boolean | null
+          show_results?: boolean | null
           timer_owner?: string | null
           updated_at?: string | null
         }
@@ -48,12 +54,15 @@ export type Database = {
           created_at?: string | null
           horses?: Json
           id?: string
+          photo_finish_results?: Json | null
           pre_race_timer?: number
           race_progress?: Json
           race_results?: Json
           race_start_time?: string | null
           race_state?: string
           race_timer?: number | null
+          show_photo_finish?: boolean | null
+          show_results?: boolean | null
           timer_owner?: string | null
           updated_at?: string | null
         }

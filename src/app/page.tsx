@@ -29,6 +29,11 @@ export default function Home() {
   const raceTimer = syncedData?.race_timer || 0;
   const raceResults = syncedData?.race_results || [];
   const raceProgress = syncedData?.race_progress || {};
+  
+  // Server-managed UI states
+  const showPhotoFinishFromServer = syncedData?.show_photo_finish || false;
+  const showResultsFromServer = syncedData?.show_results || false;
+  const photoFinishResultsFromServer = syncedData?.photo_finish_results || [];
 
   // Convert server race progress to display format
   const displayProgress = Object.entries(raceProgress).map(([horseId, data]: [string, any]) => ({
@@ -38,6 +43,29 @@ export default function Home() {
     speed: data.speed || 0,
     horse: horses.find(h => h.id === horseId)
   }));
+
+  // Update UI states based on server
+  useEffect(() => {
+    // Update photo finish state
+    if (showPhotoFinishFromServer && photoFinishResultsFromServer.length > 0) {
+      console.log('📸 Server says show photo finish');
+      setShowPhotoFinish(true);
+      setPhotoFinishResults(photoFinishResultsFromServer);
+      setShowResults(false);
+    } else {
+      setShowPhotoFinish(false);
+    }
+    
+    // Update results state
+    if (showResultsFromServer && raceResults.length > 0) {
+      console.log('🏆 Server says show results');
+      setShowResults(true);
+      setShowPhotoFinish(false);
+      setEloRefreshTrigger(prev => prev + 1);
+    } else if (!showPhotoFinishFromServer) {
+      setShowResults(false);
+    }
+  }, [showPhotoFinishFromServer, showResultsFromServer, photoFinishResultsFromServer, raceResults.length]);
 
   // Show results when race finishes
   useEffect(() => {
@@ -71,10 +99,8 @@ export default function Home() {
   };
 
   const handlePhotoFinishComplete = (finalResults: RaceResult[]) => {
-    console.log('📸 Photo finish complete');
-    setShowPhotoFinish(false);
-    setShowResults(true);
-    setEloRefreshTrigger(prev => prev + 1);
+    console.log('📸 Photo finish complete - server will handle transition to results');
+    // Server handles the transition, client just acknowledges
   };
 
   return (
@@ -155,7 +181,7 @@ export default function Home() {
         <RaceResults
           results={raceResults}
           isOpen={true}
-          onClose={() => setShowResults(false)}
+          onClose={() => console.log('🚫 Results close handled by server')}
           onNewRace={handleNewRace}
         />
       )}

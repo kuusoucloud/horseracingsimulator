@@ -13,6 +13,9 @@ interface RaceStateRow {
   race_timer?: number;
   race_start_time?: string;
   race_results: any[];
+  show_photo_finish?: boolean;
+  show_results?: boolean;
+  photo_finish_results?: any[];
   created_at: string;
   updated_at: string;
   timer_owner?: string;

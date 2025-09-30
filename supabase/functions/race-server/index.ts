@@ -52,7 +52,10 @@ async function startNewRace() {
     timer_owner: 'server',
     horses: horses,
     race_progress: {},
-    race_results: []
+    race_results: [],
+    show_photo_finish: false,
+    show_results: false,
+    photo_finish_results: []
   }
   
   const { data, error } = await supabaseClient
@@ -250,18 +253,53 @@ async function updateRaceState() {
         })
         
         updateData.race_results = results
+        
+        // Determine if we should show photo finish (close race)
+        const topThree = results.slice(0, 3)
+        const firstFinishTime = topThree[0]?.finishTime || 0
+        const thirdFinishTime = topThree[2]?.finishTime || 0
+        const timeDifference = thirdFinishTime - firstFinishTime
+        
+        // Show photo finish if top 3 are within 2 seconds of each other
+        if (timeDifference <= 2.0 && topThree.length >= 3) {
+          updateData.show_photo_finish = true
+          updateData.photo_finish_results = topThree
+          console.log('📸 Close race detected - showing photo finish')
+        } else {
+          updateData.show_photo_finish = false
+          updateData.show_results = true
+          console.log('🏆 Clear winner - showing results directly')
+        }
       }
     }
-    // Handle FINISHED state - wait 10 seconds then start new race
+    // Handle FINISHED state with photo finish or results display
     else if (raceState.race_state === 'finished') {
       const finishedTime = raceState.updated_at ? new Date(raceState.updated_at).getTime() : Date.now()
       const currentTime = Date.now()
       const timeSinceFinished = (currentTime - finishedTime) / 1000
       
-      if (timeSinceFinished >= 10) {
-        console.log('🔄 Race finished 10 seconds ago, starting new race...')
+      // Handle photo finish sequence
+      if (raceState.show_photo_finish && timeSinceFinished >= 3) {
+        // Show photo finish for 3 seconds, then show results
+        updateData = {
+          show_photo_finish: false,
+          show_results: true
+        }
+        message = 'Photo finish complete - showing results'
+      }
+      // Handle results display
+      else if (raceState.show_results && timeSinceFinished >= 10) {
+        // Show results for 10 seconds, then start new race
+        console.log('🔄 Results shown for 10 seconds, starting new race...')
         await startNewRace()
         return
+      }
+      // Auto-fallback if no display states are set
+      else if (!raceState.show_photo_finish && !raceState.show_results && timeSinceFinished >= 2) {
+        updateData = {
+          show_results: true
+        }
+        message = 'Auto-showing results'
       }
     }
 
