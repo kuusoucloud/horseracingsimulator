@@ -139,7 +139,7 @@ async function updateRaceState() {
 
     // Handle PRE-RACE TIMER (10 seconds countdown)
     if (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) {
-      const newTimer = Math.max(0, raceState.pre_race_timer - 0.1) // Decrease by 0.1 seconds per update
+      const newTimer = Math.max(0, raceState.pre_race_timer - 0.1) // Decrease by 0.1 seconds per 100ms update
       console.log(`⏰ Pre-race timer: ${raceState.pre_race_timer.toFixed(1)} -> ${newTimer.toFixed(1)}`)
 
       if (newTimer > 0) {
@@ -162,7 +162,7 @@ async function updateRaceState() {
     // Handle COUNTDOWN TIMER (10 seconds before race starts)
     else if (raceState.race_state === 'countdown') {
       const currentCountdown = raceState.countdown_timer || 10
-      const newCountdown = Math.max(0, currentCountdown - 0.1) // Decrease by 0.1 seconds per update
+      const newCountdown = Math.max(0, currentCountdown - 0.1) // Decrease by 0.1 seconds per 100ms update
       console.log(`⏰ Countdown timer: ${currentCountdown.toFixed(1)} -> ${newCountdown.toFixed(1)}`)
 
       if (newCountdown > 0) {
@@ -198,7 +198,7 @@ async function updateRaceState() {
     // Handle RACE SIMULATION (during race)
     else if (raceState.race_state === 'racing') {
       const currentRaceTimer = raceState.race_timer || 0
-      const newRaceTimer = currentRaceTimer + 0.1 // Increase by 0.1 seconds per update
+      const newRaceTimer = currentRaceTimer + 0.1 // Increase by 0.1 seconds per 100ms update
       console.log(`⏰ Race timer: ${currentRaceTimer.toFixed(1)} -> ${newRaceTimer.toFixed(1)}`)
 
       let raceProgress: RaceProgress = raceState.race_progress || {}
@@ -375,11 +375,11 @@ function startRaceLoop() {
     return
   }
   
-  console.log('🚀 Starting super fast race server loop...')
+  console.log('🚀 Starting race server loop with proper timing...')
   isRaceLoopRunning = true
   
-  // Update race state every 100ms for super fast, smooth updates
-  raceLoopInterval = setInterval(updateRaceState, 100)
+  // Update race state every 1000ms (1 second) for proper real-time timing
+  raceLoopInterval = setInterval(updateRaceState, 1000)
   
   // Also run immediately
   updateRaceState()
