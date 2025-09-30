@@ -357,6 +357,7 @@ export default function RaceController({
               position: finishData ? finishData.position : horses.length, // Fallback placement
               placement: finishData ? finishData.position : horses.length, // Fallback placement
               finishTime: finishData ? finishData.finishTime : 25 + Math.random() * 5, // Fallback time
+              lane: horse.lane, // Add required lane field
               odds: horse.odds, // Add required odds field
               gap: finishData && finishData.position > 1 ? 
                 `+${(finishData.finishTime - finishedHorses[0].finishTime).toFixed(3)}s` : 
