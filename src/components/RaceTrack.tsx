@@ -32,7 +32,7 @@ interface RaceTrackProps {
     horse?: Horse;
   }>;
   isRacing?: boolean;
-  serverWeatherConditions?: WeatherConditions;
+  serverWeatherConditions?: WeatherConditions | null;
 }
 
 // Weather and time system

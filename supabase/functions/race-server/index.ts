@@ -24,6 +24,7 @@ interface RaceProgress {
   }
 }
 
+// Weather conditions interface
 interface WeatherConditions {
   timeOfDay: "day" | "night";
   weather: "clear" | "rain";
@@ -34,6 +35,7 @@ interface WeatherConditions {
   grassColor: string;
 }
 
+// Generate weather conditions for the race
 function generateWeatherConditions(): WeatherConditions {
   // Twilight is now 10% chance
   const isTwilight = Math.random() < 0.1;
@@ -99,7 +101,7 @@ async function startNewRace() {
     show_photo_finish: false,
     show_results: false,
     photo_finish_results: [],
-    weather_conditions: weather
+    weather_conditions: generateWeatherConditions()
   }
   
   const { data, error } = await supabaseClient

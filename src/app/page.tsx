@@ -34,10 +34,8 @@ export default function Home() {
   const showPhotoFinishFromServer = syncedData?.show_photo_finish || false;
   const showResultsFromServer = syncedData?.show_results || false;
   const photoFinishResultsFromServer = syncedData?.photo_finish_results || [];
+  const serverWeatherConditions = syncedData?.weather_conditions || null;
   
-  // Server-managed weather conditions
-  const serverWeatherConditions = syncedData?.weather_conditions;
-
   // Convert server race progress to display format
   const displayProgress = Object.entries(raceProgress).map(([horseId, data]: [string, any]) => ({
     id: horseId,
