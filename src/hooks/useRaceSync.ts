@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { Horse, RaceState } from '@/types/horse';
+import { Horse, RaceState } from '@/types/horse';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface RaceStateRow {
   id: string;
