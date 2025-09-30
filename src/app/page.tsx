@@ -14,6 +14,11 @@ import PhotoFinish from '@/components/PhotoFinish';
 export default function Home() {
   const { syncedData, isConnected, updateRaceState, initializeNewRace } = useRaceSync();
   
+  // Local state for offline mode
+  const [localHorses, setLocalHorses] = useState<Horse[]>([]);
+  const [localRaceState, setLocalRaceState] = useState<RaceState>('pre-race');
+  const [localPreRaceTimer, setLocalPreRaceTimer] = useState(10);
+  
   // Local state for UI components
   const [raceResults, setRaceResults] = useState<RaceResult[] | null>(null);
   const [eloRefreshTrigger, setEloRefreshTrigger] = useState(0);
@@ -29,18 +34,25 @@ export default function Home() {
   const [showPhotoFinish, setShowPhotoFinish] = useState(false);
   const [photoFinishResults, setPhotoFinishResults] = useState<RaceResult[] | null>(null);
 
-  // Derived state from synced data
-  const horses = syncedData?.horses || [];
-  const raceState = syncedData?.race_state || 'pre-race';
-  const preRaceTimer = syncedData?.pre_race_timer || 10;
+  // Use synced data if connected, otherwise use local state
+  const horses = isConnected ? (syncedData?.horses || []) : localHorses;
+  const raceState = isConnected ? (syncedData?.race_state || 'pre-race') : localRaceState;
+  const preRaceTimer = isConnected ? (syncedData?.pre_race_timer || 10) : localPreRaceTimer;
 
   // Initialize race when component mounts and no horses exist
   useEffect(() => {
-    if (isConnected && (!syncedData?.horses || syncedData.horses.length === 0)) {
+    if (horses.length === 0) {
       const newHorses = generateRandomHorses(8);
-      initializeNewRace(newHorses);
+      if (isConnected) {
+        initializeNewRace(newHorses);
+      } else {
+        // Offline mode
+        setLocalHorses(newHorses);
+        setLocalRaceState('pre-race');
+        setLocalPreRaceTimer(10);
+      }
     }
-  }, [isConnected, syncedData, initializeNewRace]);
+  }, [horses.length, isConnected, initializeNewRace]);
 
   // Handle race progress updates from RaceController
   const handleRaceProgress = (progress: Array<{
@@ -66,19 +78,31 @@ export default function Home() {
 
   // Handle race state changes from RaceController
   const handleRaceStateChange = (newState: RaceState) => {
-    updateRaceState({ race_state: newState });
+    if (isConnected) {
+      updateRaceState({ race_state: newState });
+    } else {
+      setLocalRaceState(newState);
+    }
   };
 
-  // Pre-race timer effect - managed by first connected client
+  // Pre-race timer effect - managed by first connected client or locally
   useEffect(() => {
     let preRaceInterval: NodeJS.Timeout;
     
     if (raceState === 'pre-race' && horses.length > 0 && preRaceTimer > 0) {
       preRaceInterval = setTimeout(() => {
-        updateRaceState({ pre_race_timer: preRaceTimer - 1 });
+        if (isConnected) {
+          updateRaceState({ pre_race_timer: preRaceTimer - 1 });
+        } else {
+          setLocalPreRaceTimer(preRaceTimer - 1);
+        }
       }, 1000);
     } else if (raceState === 'pre-race' && preRaceTimer === 0) {
-      updateRaceState({ race_state: 'countdown' });
+      if (isConnected) {
+        updateRaceState({ race_state: 'countdown' });
+      } else {
+        setLocalRaceState('countdown');
+      }
     }
     
     return () => {
@@ -86,7 +110,7 @@ export default function Home() {
         clearTimeout(preRaceInterval);
       }
     };
-  }, [raceState, horses.length, preRaceTimer, updateRaceState]);
+  }, [raceState, horses.length, preRaceTimer, updateRaceState, isConnected]);
 
   // Function to check if top 3 horses finished close together (within 0.1 seconds)
   const isPhotoFinishNeeded = (results: RaceResult[]): boolean => {
@@ -116,7 +140,13 @@ export default function Home() {
     setShowPhotoFinish(false);
     
     const newHorses = generateRandomHorses(8);
-    initializeNewRace(newHorses);
+    if (isConnected) {
+      initializeNewRace(newHorses);
+    } else {
+      setLocalHorses(newHorses);
+      setLocalRaceState('pre-race');
+      setLocalPreRaceTimer(10);
+    }
   };
 
   const handleRaceComplete = (results: RaceResult[]) => {
@@ -125,10 +155,12 @@ export default function Home() {
     // Always process ELO first
     const processedResults = processRaceResultsData(results);
     
-    // Update race state in database (don't store race_results as they're UI-only)
-    updateRaceState({ 
-      race_state: 'finished'
-    });
+    // Update race state in database or locally
+    if (isConnected) {
+      updateRaceState({ race_state: 'finished' });
+    } else {
+      setLocalRaceState('finished');
+    }
     
     // Check if photo finish is needed
     if (isPhotoFinishNeeded(results)) {
@@ -188,17 +220,15 @@ export default function Home() {
     return resultsWithEloChanges;
   };
 
-  // Show loading state while connecting
-  if (!isConnected) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 flex items-center justify-center">
-        <div className="text-white text-xl">🏇 Connecting to race server...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 p-4">
+      {/* Show connection status */}
+      {!isConnected && (
+        <div className="bg-yellow-600 text-white px-4 py-2 rounded-lg mb-4 text-center">
+          🏇 Running in offline mode - race data won't sync between devices
+        </div>
+      )}
+      
       <div className="max-w-7xl mx-auto">
         {/* Top Row: Horse Lineup + Race Track */}
         <div className="grid grid-cols-1 lg:grid-cols-7 gap-6 mb-6">

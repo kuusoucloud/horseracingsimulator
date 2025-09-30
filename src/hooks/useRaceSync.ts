@@ -19,15 +19,20 @@ interface RaceStateRow {
 type SyncedRaceData = Omit<RaceStateRow, 'id' | 'created_at' | 'updated_at'>;
 
 export function useRaceSync() {
-  const [raceState, setRaceState] = useState<RaceState>('pre-race');
-  const [horses, setHorses] = useState<Horse[]>([]);
-  const [raceProgress, setRaceProgress] = useState<Record<string, number>>({});
-  const [preRaceTimer, setPreRaceTimer] = useState(10);
-  const [raceResults, setRaceResults] = useState<Horse[]>([]);
+  const [syncedData, setSyncedData] = useState<SyncedRaceData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  
   const clientId = useRef(Math.random().toString(36).substring(7));
   const isTimerOwner = useRef(false);
+
+  // Set connection status based on Supabase availability
+  useEffect(() => {
+    if (supabase) {
+      setIsConnected(true);
+    } else {
+      setIsConnected(false);
+      console.log('🏇 Supabase not available - running in offline mode');
+    }
+  }, []);
 
   // Fetch current race state
   const fetchRaceState = useCallback(async () => {
@@ -50,11 +55,7 @@ export function useRaceSync() {
       }
 
       if (data) {
-        setRaceState(data.race_state);
-        setHorses(data.horses || []);
-        setRaceProgress(data.race_progress || {});
-        setPreRaceTimer(data.pre_race_timer || 10);
-        setRaceResults(data.race_results || []);
+        setSyncedData(data as SyncedRaceData);
         setIsConnected(true);
       }
     } catch (error) {
@@ -107,11 +108,14 @@ export function useRaceSync() {
       if (error) throw error;
       
       // Update local state
-      setRaceState('pre-race');
-      setHorses(horses);
-      setRaceProgress({});
-      setPreRaceTimer(10);
-      setRaceResults([]);
+      setSyncedData({
+        race_state: 'pre-race',
+        horses: horses,
+        race_progress: {},
+        pre_race_timer: 10,
+        race_results: [],
+        timer_owner: null
+      });
       
     } catch (error) {
       console.error('Error initializing new race:', error);
@@ -184,11 +188,7 @@ export function useRaceSync() {
           .single();
 
         if (initialData) {
-          setRaceState(initialData.race_state);
-          setHorses(initialData.horses || []);
-          setRaceProgress(initialData.race_progress || {});
-          setPreRaceTimer(initialData.pre_race_timer || 10);
-          setRaceResults(initialData.race_results || []);
+          setSyncedData(initialData as SyncedRaceData);
           setIsConnected(true);
         }
 
@@ -205,11 +205,7 @@ export function useRaceSync() {
             (payload) => {
               if (payload.new) {
                 const newData = payload.new as RaceStateRow;
-                setRaceState(newData.race_state);
-                setHorses(newData.horses || []);
-                setRaceProgress(newData.race_progress || {});
-                setPreRaceTimer(newData.pre_race_timer || 10);
-                setRaceResults(newData.race_results || []);
+                setSyncedData(newData as SyncedRaceData);
               }
             }
           )
@@ -233,15 +229,15 @@ export function useRaceSync() {
     let preRaceInterval: NodeJS.Timeout;
     
     const manageTimer = async () => {
-      if (raceState === 'pre-race' && horses.length > 0) {
+      if (syncedData?.race_state === 'pre-race' && syncedData?.horses?.length > 0) {
         // Try to claim timer ownership
         const hasOwnership = await claimTimerOwnership();
         
-        if (hasOwnership && preRaceTimer > 0) {
+        if (hasOwnership && syncedData?.pre_race_timer > 0) {
           preRaceInterval = setTimeout(() => {
-            updateRaceState({ pre_race_timer: preRaceTimer - 1 });
+            updateRaceState({ pre_race_timer: syncedData.pre_race_timer - 1 });
           }, 1000);
-        } else if (hasOwnership && preRaceTimer === 0) {
+        } else if (hasOwnership && syncedData?.pre_race_timer === 0) {
           updateRaceState({ race_state: 'countdown' });
         }
       }
@@ -254,7 +250,7 @@ export function useRaceSync() {
         clearTimeout(preRaceInterval);
       }
     };
-  }, [raceState, horses.length, preRaceTimer, updateRaceState, claimTimerOwnership]);
+  }, [syncedData, claimTimerOwnership, updateRaceState]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -264,18 +260,7 @@ export function useRaceSync() {
   }, [releaseTimerOwnership]);
 
   return {
-    syncedData: {
-      horses,
-      race_state: raceState,
-      race_progress: raceProgress,
-      pre_race_timer: preRaceTimer,
-      race_results: raceResults
-    },
-    raceState,
-    horses,
-    raceProgress,
-    preRaceTimer,
-    raceResults,
+    syncedData,
     isConnected,
     updateRaceState,
     initializeNewRace,
