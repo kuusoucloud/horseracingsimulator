@@ -1700,7 +1700,7 @@ export default function RaceTrack({
             if (!horse || !horse.name) return null;
 
             const [targetX, , laneOffset] = allHorsePositions[index];
-            const actualLane = horse.lane || index + 1;
+            const actualLane = ('lane' in horse ? horse.lane : null) || index + 1;
 
             return (
               <SmoothHorse
