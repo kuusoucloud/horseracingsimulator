@@ -14,6 +14,9 @@ interface RaceStateRow {
   timer_owner?: string; // Add timer owner field
 }
 
+// Define the type for synced race data updates
+type SyncedRaceData = Omit<RaceStateRow, 'id' | 'created_at' | 'updated_at'>;
+
 export function useRaceSync() {
   const [raceState, setRaceState] = useState<RaceState>('pre-race');
   const [horses, setHorses] = useState<Horse[]>([]);
