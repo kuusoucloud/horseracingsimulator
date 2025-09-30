@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getHorseRank } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, RotateCcw } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // Initialize Supabase client
@@ -160,15 +160,6 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
                 Live
               </Badge>
             </div>
-            <Button
-              onClick={handleReset}
-              size="sm"
-              variant="outline"
-              className="h-6 px-2 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10"
-            >
-              <RotateCcw className="w-3 h-3 mr-1" />
-              Reset
-            </Button>
           </motion.div>
 
           <div className="flex-1 flex gap-3 min-h-0">
