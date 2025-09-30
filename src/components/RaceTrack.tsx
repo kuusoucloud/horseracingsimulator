@@ -16,6 +16,7 @@ declare global {
         horseName: string,
         finishTime: number,
       ) => void;
+      reset?: () => void;
     };
   }
 }
