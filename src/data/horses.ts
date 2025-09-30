@@ -1,3 +1,11 @@
+import { Horse } from '../types/horse';
+
+// Define HorseData interface for the database
+interface HorseData {
+  name: string;
+  elo: number;
+}
+
 // ELO Rating System
 export const STARTING_ELO = 500;
 const K_FACTOR_PODIUM = 192; // Increased K-factor for podium finishers (1st, 2nd, 3rd)
