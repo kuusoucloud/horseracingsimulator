@@ -135,8 +135,8 @@ export default function RaceResults({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] bg-gray-900/95 border-gray-700 overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={() => {}} modal={false}>
+      <DialogContent className="max-w-4xl max-h-[90vh] bg-gray-900/95 border-gray-700 overflow-y-auto" hideCloseButton>
         <DialogHeader>
           <DialogTitle className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-center">
             Race Results
