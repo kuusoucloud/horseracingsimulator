@@ -217,14 +217,20 @@ Deno.serve(async (req) => {
         // Create final results
         const results = horses.map((horse: any, index: number) => {
           const progress = raceProgress[horse.id]
+          const placement = progress?.finished ? 
+            finishedHorses.findIndex(f => f.id === horse.id) + 1 : 
+            horses.length
+          
           return {
             id: horse.id,
             name: horse.name,
             position: progress?.position || 0,
             finishTime: progress?.finishTime || newRaceTimer,
-            placement: progress?.finished ? 
-              finishedHorses.findIndex(f => f.id === horse.id) + 1 : 
-              horses.length
+            placement: placement,
+            lane: index + 1,
+            odds: horse.odds || 2.0,
+            gap: placement === 1 ? "0.00s" : `+${((progress?.finishTime || newRaceTimer) - (finishedHorses[0]?.finishTime || newRaceTimer)).toFixed(2)}s`,
+            horse: horse
           }
         }).sort((a, b) => {
           if (a.placement !== b.placement) return a.placement - b.placement
