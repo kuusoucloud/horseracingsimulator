@@ -297,9 +297,9 @@ export function useRaceSync() {
         timerInterval = setInterval(callServerTimer, 1000); // Call server every second
       } else {
         console.log('🚫 Not starting timer - conditions not met:', {
-          horsesLength: syncedData.horses?.length,
-          raceState: syncedData.race_state,
-          validStates: ['pre-race', 'countdown', 'racing'].includes(syncedData.race_state)
+          horsesLength: syncedData?.horses?.length,
+          raceState: syncedData?.race_state,
+          validStates: ['pre-race', 'countdown', 'racing'].includes(syncedData?.race_state)
         });
       }
     };
@@ -313,7 +313,7 @@ export function useRaceSync() {
         clearInterval(timerInterval);
       }
     };
-  }, [syncedData, supabase]);
+  }, [syncedData?.race_state, syncedData?.horses?.length, syncedData?.pre_race_timer, supabase]);
 
   // Cleanup on unmount
   useEffect(() => {
