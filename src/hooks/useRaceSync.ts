@@ -28,6 +28,7 @@ export function useRaceSync() {
   const [syncedData, setSyncedData] = useState<SyncedRaceData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const hasStartedServer = useRef(false);
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Set connection status based on Supabase availability
   useEffect(() => {
@@ -65,7 +66,31 @@ export function useRaceSync() {
     startRaceServer();
   }, []);
 
-  // Load initial race state
+  // Polling function to constantly fetch latest race state
+  const pollRaceState = useCallback(async () => {
+    if (!supabase) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('race_state')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error polling race state:', error);
+        return;
+      }
+
+      if (data) {
+        setSyncedData(data as SyncedRaceData);
+      }
+    } catch (error) {
+      console.error('Error in pollRaceState:', error);
+    }
+  }, []);
+
+  // Load initial race state and start aggressive polling
   useEffect(() => {
     const loadRaceState = async () => {
       if (!supabase) return;
@@ -94,9 +119,20 @@ export function useRaceSync() {
     };
 
     loadRaceState();
-  }, []);
 
-  // Subscribe to real-time updates
+    // Start aggressive polling every 500ms for truly "live" updates
+    console.log('🔄 Starting aggressive polling every 500ms for live updates...');
+    pollingInterval.current = setInterval(pollRaceState, 500);
+
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+        pollingInterval.current = null;
+      }
+    };
+  }, [pollRaceState]);
+
+  // Subscribe to real-time updates (backup to polling)
   useEffect(() => {
     let subscription: RealtimeChannel | null = null;
 
