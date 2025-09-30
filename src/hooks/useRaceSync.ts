@@ -34,36 +34,87 @@ export function useRaceSync() {
     }
   }, []);
 
-  // Fetch current race state
-  const fetchRaceState = useCallback(async () => {
-    if (!supabase) {
-      console.warn('Supabase client not available');
-      return;
-    }
+  // Load initial race state
+  useEffect(() => {
+    const loadRaceState = async () => {
+      if (!supabase) return;
 
-    try {
-      const { data, error } = await supabase
-        .from('race_state')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      try {
+        // Try to get existing race state
+        const { data, error } = await supabase
+          .from('race_state')
+          .select('*')
+          .limit(1)
+          .single();
 
-      if (error) {
-        console.error('Error fetching race state:', error);
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error loading race state:', error);
+          return;
+        }
+
+        if (data) {
+          console.log('🏇 Loaded existing race state:', data);
+          setSyncedData(data as SyncedRaceData);
+        } else {
+          console.log('🏇 No existing race state found');
+        }
+      } catch (error) {
+        console.error('Error in loadRaceState:', error);
+      }
+    };
+
+    loadRaceState();
+  }, []);
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    let subscription: RealtimeChannel | null = null;
+
+    const setupSubscription = async () => {
+      if (!supabase) {
+        console.log('🏇 Supabase not available - running in offline mode');
         return;
       }
 
-      if (data) {
-        setSyncedData(data as SyncedRaceData);
-        setIsConnected(true);
+      try {
+        subscription = supabase
+          .channel('race_state_changes')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'race_state'
+            },
+            (payload) => {
+              console.log('🔄 Real-time update received:', payload);
+              if (payload.new && typeof payload.new === 'object') {
+                setSyncedData(payload.new as SyncedRaceData);
+              }
+            }
+          )
+          .subscribe((status) => {
+            console.log('📡 Subscription status:', status);
+            if (status === 'SUBSCRIBED') {
+              setIsConnected(true);
+            }
+          });
+      } catch (error) {
+        console.error('Error setting up subscription:', error);
+        setIsConnected(false);
       }
-    } catch (error) {
-      console.error('Error fetching race state:', error);
-    }
+    };
+
+    setupSubscription();
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, []);
 
-  // Update race state in database
+  // Update race state function with better error handling
   const updateRaceState = useCallback(async (updates: Partial<SyncedRaceData>) => {
     if (!supabase) {
       console.warn('Supabase client not available');
@@ -71,18 +122,41 @@ export function useRaceSync() {
     }
 
     try {
-      const { error } = await supabase
+      // First, get the current race state ID
+      const { data: currentData, error: selectError } = await supabase
+        .from('race_state')
+        .select('id')
+        .limit(1)
+        .single();
+
+      if (selectError) {
+        console.error('Error getting current race state:', selectError);
+        return;
+      }
+
+      if (!currentData?.id) {
+        console.error('No race state found to update');
+        return;
+      }
+
+      // Update the race state
+      const { error: updateError } = await supabase
         .from('race_state')
         .update(updates)
-        .eq('id', (await supabase.from('race_state').select('id').single()).data?.id);
-      
-      if (error) throw error;
+        .eq('id', currentData.id);
+
+      if (updateError) {
+        console.error('Error updating race state:', updateError);
+        return;
+      }
+
+      console.log('✅ Race state updated successfully:', updates);
     } catch (error) {
       console.error('Error updating race state:', error);
     }
   }, []);
 
-  // Initialize new race function
+  // Initialize new race function with better error handling
   const initializeNewRace = useCallback(async (horses: Horse[]) => {
     if (!supabase) {
       console.warn('Supabase client not available');
@@ -90,84 +164,85 @@ export function useRaceSync() {
     }
 
     try {
-      // Check if there's already an active race
-      const { data: existingRace } = await supabase
+      // Delete all existing race states
+      const { error: deleteError } = await supabase
         .from('race_state')
-        .select('*')
-        .single();
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
 
-      if (existingRace && existingRace.race_state !== 'finished') {
-        console.log('🏇 Race already exists, not creating new one');
-        setSyncedData(existingRace as SyncedRaceData);
-        return;
+      if (deleteError) {
+        console.error('Error deleting existing race states:', deleteError);
       }
 
-      // Delete existing race state
-      await supabase.from('race_state').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      
       // Create new race state
-      const { error } = await supabase
-        .from('race_state')
-        .insert({
-          race_state: 'pre-race',
-          horses: horses,
-          race_progress: {},
-          pre_race_timer: 10,
-          race_results: [],
-          timer_owner: undefined
-        });
-      
-      if (error) throw error;
-      
-      console.log('🏇 New race initialized with horses:', horses.length);
-      
-      // Update local state
-      setSyncedData({
-        race_state: 'pre-race',
+      const newRaceState = {
+        race_state: 'pre-race' as const,
         horses: horses,
         race_progress: {},
         pre_race_timer: 10,
         race_results: [],
-        timer_owner: undefined
-      });
-      
+        timer_owner: null as string | null
+      };
+
+      const { data, error: insertError } = await supabase
+        .from('race_state')
+        .insert(newRaceState)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error creating new race state:', insertError);
+        return;
+      }
+
+      console.log('🏇 New race initialized successfully:', data);
+      setSyncedData(data as SyncedRaceData);
+
     } catch (error) {
       console.error('Error initializing new race:', error);
     }
   }, []);
 
-  // Claim timer ownership
-  const claimTimerOwnership = useCallback(async () => {
-    if (!supabase) {
-      console.warn('Supabase client not available');
-      return false;
-    }
+  // Timer ownership with better error handling
+  const claimTimerOwnership = useCallback(async (): Promise<boolean> => {
+    if (!supabase) return false;
 
     try {
-      // First, get current race state to check timer ownership
-      const { data, error } = await supabase
+      // Get current race state
+      const { data: currentData, error: selectError } = await supabase
         .from('race_state')
-        .select('timer_owner')
+        .select('id, timer_owner')
+        .limit(1)
         .single();
 
-      if (error) {
-        console.error('Error checking timer ownership:', error);
+      if (selectError || !currentData) {
+        console.error('Error getting current race state for timer ownership:', selectError);
         return false;
       }
 
-      // If no owner or owner is stale, claim ownership
-      if (!data?.timer_owner) {
-        await updateRaceState({ timer_owner: clientId.current });
+      // If no timer owner or we're already the owner
+      if (!currentData.timer_owner || currentData.timer_owner === clientId.current) {
+        const { error: updateError } = await supabase
+          .from('race_state')
+          .update({ timer_owner: clientId.current })
+          .eq('id', currentData.id);
+
+        if (updateError) {
+          console.error('Error claiming timer ownership:', updateError);
+          return false;
+        }
+
         isTimerOwner.current = true;
+        console.log('⏰ Timer ownership claimed by:', clientId.current);
         return true;
       }
-      
-      return data.timer_owner === clientId.current;
+
+      return false;
     } catch (error) {
-      console.error('Error claiming timer ownership:', error);
+      console.error('Error checking timer ownership:', error);
       return false;
     }
-  }, [updateRaceState]);
+  }, []);
 
   // Release timer ownership
   const releaseTimerOwnership = useCallback(async () => {
@@ -181,62 +256,6 @@ export function useRaceSync() {
       isTimerOwner.current = false;
     }
   }, [updateRaceState]);
-
-  // Subscribe to real-time updates
-  useEffect(() => {
-    let subscription: RealtimeChannel | null = null;
-
-    const setupSubscription = async () => {
-      if (!supabase) {
-        console.warn('Supabase client not available');
-        return;
-      }
-
-      try {
-        // Get initial data
-        const { data: initialData } = await supabase
-          .from('race_state')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (initialData) {
-          setSyncedData(initialData as SyncedRaceData);
-          setIsConnected(true);
-        }
-
-        // Subscribe to changes
-        subscription = supabase
-          .channel('race_state_changes')
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'race_state'
-            },
-            (payload) => {
-              if (payload.new) {
-                const newData = payload.new as RaceStateRow;
-                setSyncedData(newData as SyncedRaceData);
-              }
-            }
-          )
-          .subscribe()
-      } catch (error) {
-        console.error('Error setting up subscription:', error);
-      }
-    };
-
-    setupSubscription();
-
-    return () => {
-      if (subscription) {
-        subscription.unsubscribe();
-      }
-    };
-  }, []);
 
   // Timer management - only for timer owner
   useEffect(() => {
