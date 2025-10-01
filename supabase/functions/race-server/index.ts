@@ -1,40 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateRandomHorses, calculateOddsFromELO } from './horses.ts'
 
-// Generate weather conditions that match client expectations
-function generateWeatherConditions() {
-  const isTwilight = Math.random() < 0.1;
-  const isRainy = Math.random() < 0.1;
-
-  if (isTwilight) {
-    return {
-      timeOfDay: "night",
-      weather: isRainy ? "rain" : "clear",
-      skyColor: isRainy ? "#4a4a6b" : "#6a5acd",
-      ambientIntensity: 0.6,
-      directionalIntensity: 0.8,
-      trackColor: isRainy ? "#5d4e37" : "#8B4513",
-      grassColor: isRainy ? "#2d5a2d" : "#228b22",
-    };
-  } else {
-    return {
-      timeOfDay: "day",
-      weather: isRainy ? "rain" : "clear",
-      skyColor: isRainy ? "#6b7280" : "#87ceeb",
-      ambientIntensity: 0.4,
-      directionalIntensity: isRainy ? 0.7 : 1.0,
-      trackColor: isRainy ? "#5d4e37" : "#8B4513",
-      grassColor: isRainy ? "#2d5a2d" : "#32cd32",
-    };
-  }
-}
-
 Deno.serve(async (req) => {
-  console.log(`📡 Received ${req.method} request`)
+  console.log(`📡 Race server called with ${req.method}`)
 
-  // Handle CORS preflight - MUST be first
+  // Handle CORS preflight - MUST be first and simplest possible
   if (req.method === 'OPTIONS') {
-    console.log('🔄 CORS preflight')
     return new Response(null, {
       status: 200,
       headers: {
@@ -45,8 +16,8 @@ Deno.serve(async (req) => {
     })
   }
 
-  // Standard headers for all responses
-  const responseHeaders = {
+  // Standard headers
+  const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Content-Type': 'application/json',
@@ -58,45 +29,39 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Check for existing race state
-    const { data: existingRace, error: fetchError } = await supabaseClient
+    // Check for existing race
+    const { data: existingRace } = await supabaseClient
       .from('race_state')
       .select('*')
       .limit(1)
       .maybeSingle()
 
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('❌ Error fetching race state:', fetchError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch race state', details: fetchError.message }),
-        { status: 500, headers: responseHeaders }
-      )
-    }
-
-    // If no race exists or race is finished, create a new one
+    // If no race or race finished, create new one
     if (!existingRace || existingRace.race_state === 'finished') {
       console.log('🏇 Creating new race...')
       
-      // Generate new horses with ELO ratings and proper initialization
-      const newHorses = generateRandomHorses(8)
-      const horsesWithOdds = newHorses.map((horse, index) => ({
+      const newHorses = generateRandomHorses(8).map((horse, index) => ({
         ...horse,
         odds: calculateOddsFromELO(horse.elo),
-        position: 0, // Ensure position starts at 0
+        position: 0,
         lane: index + 1,
         finishTime: null,
         placement: null
       }))
       
-      // Generate weather conditions
-      const weatherConditions = generateWeatherConditions()
-      
-      console.log('🏇 Generated horses:', horsesWithOdds.map(h => `${h.name} (ELO: ${h.elo}, Odds: ${h.odds})`))
+      const weatherConditions = {
+        timeOfDay: "day",
+        weather: "clear", 
+        skyColor: "#87ceeb",
+        ambientIntensity: 0.4,
+        directionalIntensity: 1.0,
+        trackColor: "#8B4513",
+        grassColor: "#32cd32"
+      }
 
-      // Create new race state
       const newRaceData = {
-        race_state: 'pre-race' as const,
-        horses: horsesWithOdds,
+        race_state: 'pre-race',
+        horses: newHorses,
         race_progress: {},
         pre_race_timer: 10,
         countdown_timer: 0,
@@ -110,61 +75,50 @@ Deno.serve(async (req) => {
         timer_owner: 'server'
       }
 
-      // Delete old race state if it exists
+      // Delete old race if exists
       if (existingRace) {
-        await supabaseClient
-          .from('race_state')
-          .delete()
-          .eq('id', existingRace.id)
+        await supabaseClient.from('race_state').delete().eq('id', existingRace.id)
       }
 
-      // Insert new race state
-      const { data: newRace, error: insertError } = await supabaseClient
+      // Insert new race
+      const { data: newRace, error } = await supabaseClient
         .from('race_state')
         .insert([newRaceData])
         .select()
         .single()
 
-      if (insertError) {
-        console.error('❌ Error creating new race:', insertError)
+      if (error) {
         return new Response(
-          JSON.stringify({ error: 'Failed to create new race', details: insertError.message }),
-          { status: 500, headers: responseHeaders }
+          JSON.stringify({ error: 'Failed to create race', details: error.message }),
+          { status: 500, headers }
         )
       }
 
-      console.log('✅ New race created successfully:', newRace.id)
-      
       return new Response(
         JSON.stringify({ 
           message: 'New race created successfully',
           race_id: newRace.id,
-          horses: horsesWithOdds.length,
-          weather: weatherConditions,
-          state: 'pre-race',
-          timer: 10
+          horses: newHorses.length,
+          state: 'pre-race'
         }),
-        { status: 200, headers: responseHeaders }
+        { status: 200, headers }
       )
     } else {
-      console.log('🏇 Race already exists:', existingRace.race_state)
-      
       return new Response(
         JSON.stringify({ 
           message: 'Race already exists',
           race_id: existingRace.id,
-          state: existingRace.race_state,
-          timer: existingRace.pre_race_timer
+          state: existingRace.race_state
         }),
-        { status: 200, headers: responseHeaders }
+        { status: 200, headers }
       )
     }
 
   } catch (error) {
-    console.error('❌ Server error:', error)
+    console.error('❌ Race server error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
-      { status: 500, headers: responseHeaders }
+      JSON.stringify({ error: 'Server error', details: error.message }),
+      { status: 500, headers }
     )
   }
 })
