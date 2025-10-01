@@ -222,7 +222,7 @@ async function startNewRace() {
   // Delete existing race state to ensure clean start
   await supabaseClient.from('race_state').delete().neq('id', '00000000-0000-0000-0000-000000000000')
   
-  // Create new race state - ALWAYS start at pre-race
+  // Create new race state - ALWAYS start at pre-race with stable horses
   const newRaceState = {
     race_state: 'pre-race',
     pre_race_timer: 10,
@@ -231,7 +231,7 @@ async function startNewRace() {
     finish_timer: 0,
     race_start_time: null,
     timer_owner: 'server',
-    horses: horses,
+    horses: horses, // CRITICAL: Horses are set here and NEVER changed during race cycle
     race_progress: {},
     race_results: [],
     show_photo_finish: false,
@@ -252,9 +252,9 @@ async function startNewRace() {
     return null
   }
   
-  console.log('✅ New race created with weather:', weather.timeOfDay, weather.weather)
+  console.log('✅ New race created with STABLE horses - no regeneration during race cycle')
   console.log('🌤️ Weather conditions stored:', data.weather_conditions)
-  console.log('🏇 Horses with ELO ratings:', horses.map(h => ({ name: h.name, elo: h.elo })))
+  console.log('🏇 Horses with ELO ratings (LOCKED):', horses.map(h => ({ name: h.name, elo: h.elo })))
   console.log('⏰ Race initialized at pre-race stage with 10 second timer')
   return data
 }

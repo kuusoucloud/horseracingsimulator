@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { getHorseRank } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
   const [topHorses, setTopHorses] = useState<Horse[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hoveredHorse, setHoveredHorse] = useState<string | null>(null); // Client-side hover state
 
   // ELO Tiers definition - all tiers restored with Mythical as pink, Rookie removed
   const eloTiers = [
@@ -81,8 +82,8 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
   useEffect(() => {
     refreshLeaderboard();
     
-    // Refresh every 10 seconds instead of 5 to reduce flickering
-    const interval = setInterval(() => refreshLeaderboard(true), 10000);
+    // Refresh every 15 seconds instead of 10 to reduce server load
+    const interval = setInterval(() => refreshLeaderboard(true), 15000);
     
     return () => clearInterval(interval);
   }, []);
@@ -142,6 +143,83 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
     }
   };
 
+  // Memoize horse cards to prevent unnecessary re-renders
+  const horseCards = useMemo(() => {
+    return topHorses.map((horse, index) => {
+      const rank = getHorseRank(horse.elo);
+      const isHovered = hoveredHorse === horse.name;
+      
+      return (
+        <motion.div
+          key={horse.name}
+          className={`${rank.bgColor} p-2 rounded-lg border ${rank.borderColor} shadow-lg relative overflow-hidden flex flex-col h-full transition-all duration-300 ${
+            isHovered ? 'scale-105 shadow-xl' : ''
+          }`}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: isHovered ? 1.05 : 1 }}
+          transition={{ duration: 0.2 }}
+          onMouseEnter={() => setHoveredHorse(horse.name)}
+          onMouseLeave={() => setHoveredHorse(null)}
+        >
+          {/* Rank number */}
+          <div className="absolute top-1 left-1">
+            <span className="text-sm font-bold text-white/90">
+              {index + 1}
+            </span>
+          </div>
+
+          {/* ELO score - bigger */}
+          <div className="absolute top-1 right-1">
+            <span className="text-sm font-mono font-bold text-white">
+              {Math.round(horse.elo)}
+            </span>
+          </div>
+
+          {/* Horse name */}
+          <div className="mt-4 mb-2 flex-1">
+            <h3 className="text-xs font-bold text-white truncate leading-tight">
+              {horse.name}
+            </h3>
+          </div>
+
+          {/* Stats - moved up */}
+          <div className="space-y-1 mb-6">
+            <div className="flex items-center gap-1">
+              <Trophy className="w-2.5 h-2.5 text-yellow-400" />
+              <span className="text-xs text-white/80">
+                {horse.wins || 0}
+              </span>
+            </div>
+            
+            {/* Form - horizontal */}
+            <div className="flex items-center gap-0.5">
+              {horse.recent_form?.slice(0, 4).map((placement, formIndex) => (
+                <span
+                  key={formIndex}
+                  className={`text-xs font-bold px-0.5 py-0 rounded text-center min-w-[12px] h-3 flex items-center justify-center ${
+                    placement === 1 ? 'bg-yellow-500/30 text-yellow-300' :
+                    placement === 2 ? 'bg-gray-400/30 text-gray-300' :
+                    placement === 3 ? 'bg-orange-500/30 text-orange-300' :
+                    'bg-white/10 text-white/60'
+                  }`}
+                >
+                  {placement}
+                </span>
+              )) || <span className="text-xs text-white/40">-</span>}
+            </div>
+          </div>
+
+          {/* Rank badge */}
+          <div className="absolute bottom-1 left-1">
+            <span className={`px-1 py-0.5 rounded-full text-xs font-medium ${rank.textColor} bg-black/20`}>
+              {rank.name}
+            </span>
+          </div>
+        </motion.div>
+      );
+    });
+  }, [topHorses, hoveredHorse]);
+
   if (loading) {
     return (
       <div className="w-full h-[300px] bg-transparent overflow-hidden">
@@ -191,74 +269,7 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
                 </div>
               ) : (
                 <div className="grid grid-cols-4 gap-2 h-full">
-                  {topHorses.map((horse, index) => {
-                    const rank = getHorseRank(horse.elo);
-                    return (
-                      <motion.div
-                        key={horse.name}
-                        className={`${rank.bgColor} p-2 rounded-lg border ${rank.borderColor} shadow-lg relative overflow-hidden flex flex-col h-full transition-all duration-300`}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.5, delay: index * 0.05 }}
-                        whileHover={{ scale: 1.02 }}
-                      >
-                        {/* Rank number */}
-                        <div className="absolute top-1 left-1">
-                          <span className="text-sm font-bold text-white/90">
-                            {index + 1}
-                          </span>
-                        </div>
-
-                        {/* ELO score - bigger */}
-                        <div className="absolute top-1 right-1">
-                          <span className="text-sm font-mono font-bold text-white">
-                            {Math.round(horse.elo)}
-                          </span>
-                        </div>
-
-                        {/* Horse name */}
-                        <div className="mt-4 mb-2 flex-1">
-                          <h3 className="text-xs font-bold text-white truncate leading-tight">
-                            {horse.name}
-                          </h3>
-                        </div>
-
-                        {/* Stats - moved up */}
-                        <div className="space-y-1 mb-6">
-                          <div className="flex items-center gap-1">
-                            <Trophy className="w-2.5 h-2.5 text-yellow-400" />
-                            <span className="text-xs text-white/80">
-                              {horse.wins || 0}
-                            </span>
-                          </div>
-                          
-                          {/* Form - horizontal */}
-                          <div className="flex items-center gap-0.5">
-                            {horse.recent_form?.slice(0, 4).map((placement, formIndex) => (
-                              <span
-                                key={formIndex}
-                                className={`text-xs font-bold px-0.5 py-0 rounded text-center min-w-[12px] h-3 flex items-center justify-center ${
-                                  placement === 1 ? 'bg-yellow-500/30 text-yellow-300' :
-                                  placement === 2 ? 'bg-gray-400/30 text-gray-300' :
-                                  placement === 3 ? 'bg-orange-500/30 text-orange-300' :
-                                  'bg-white/10 text-white/60'
-                                }`}
-                              >
-                                {placement}
-                              </span>
-                            )) || <span className="text-xs text-white/40">-</span>}
-                          </div>
-                        </div>
-
-                        {/* Rank badge */}
-                        <div className="absolute bottom-1 left-1">
-                          <span className={`px-1 py-0.5 rounded-full text-xs font-medium ${rank.textColor} bg-black/20`}>
-                            {rank.name}
-                          </span>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                  {horseCards}
                 </div>
               )}
             </div>
