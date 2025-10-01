@@ -870,82 +870,130 @@ function stopRaceLoop() {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
+  // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      status: 200,
-      headers: corsHeaders
-    })
+    return new Response('ok', { 
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+      },
+      status: 200 
+    });
   }
-
-  console.log(`📡 Race server request: ${req.method}`)
 
   try {
-    const url = new URL(req.url)
-    const action = url.searchParams.get('action') || 'status'
+    console.log('🚀 Race server request received - checking for horses...')
+    
+    // FORCE CHECK: Ensure horses exist immediately
+    const { data: currentRaceState, error: fetchError } = await supabaseClient
+      .from('race_state')
+      .select('*')
+      .limit(1)
+      .single()
 
-    switch (action) {
-      case 'start':
-        // Server is already auto-running, just confirm status
-        return new Response(
-          JSON.stringify({ message: 'Race server is auto-running', running: isRaceLoopRunning }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-        
-      case 'stop':
-        stopRaceLoop()
-        return new Response(
-          JSON.stringify({ message: 'Race server stopped', running: isRaceLoopRunning }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-        
-      case 'status':
-      default:
-        // Get current race state
-        const { data: raceState } = await supabaseClient
-          .from('race_state')
-          .select('*')
-          .limit(1)
-          .single()
-          
-        // Ensure weather conditions are present
-        let finalRaceState = raceState
-        if (raceState && (!raceState.weather_conditions || Object.keys(raceState.weather_conditions).length === 0)) {
-          console.log('🌤️ Missing weather conditions, generating new ones...')
-          const weather = generateWeatherConditions()
-          
-          const { data: updatedState } = await supabaseClient
-            .from('race_state')
-            .update({ weather_conditions: weather })
-            .eq('id', raceState.id)
-            .select()
-            .single()
-            
-          finalRaceState = updatedState || raceState
-          console.log('🌤️ Updated race state with weather:', weather)
-        }
-          
-        return new Response(
-          JSON.stringify({ 
-            message: 'Race server status',
-            running: isRaceLoopRunning,
-            raceState: finalRaceState || null
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+    if (fetchError || !currentRaceState) {
+      console.log('❌ No race state found - FORCE creating with horses NOW...')
+      const newRace = await startNewRace()
+      
+      if (newRace && newRace.horses && newRace.horses.length > 0) {
+        console.log('✅ SUCCESS: Forced race creation with horses:', newRace.horses.map(h => h.name))
+        return new Response(JSON.stringify({ 
+          status: 'race_created', 
+          horses: newRace.horses.length,
+          message: 'New race created with horses'
+        }), {
+          headers: { 
+            'Access-Control-Allow-Origin': '*', 
+            'Content-Type': 'application/json' 
+          },
+          status: 200,
+        });
+      } else {
+        console.error('❌ FAILED: Race creation did not produce horses')
+        return new Response(JSON.stringify({ 
+          status: 'error', 
+          message: 'Failed to create horses'
+        }), {
+          headers: { 
+            'Access-Control-Allow-Origin': '*', 
+            'Content-Type': 'application/json' 
+          },
+          status: 500,
+        });
+      }
     }
 
-  } catch (error) {
-    console.error('Server error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    if (!currentRaceState.horses || currentRaceState.horses.length === 0) {
+      console.log('❌ Race state exists but NO HORSES - FORCE adding horses NOW...')
+      
+      // Generate horses using the simple function first
+      const horses = generateRandomHorses(8)
+      console.log('🏇 Generated horses:', horses.map(h => ({ name: h.name, elo: h.elo })))
+      
+      const { error: updateError } = await supabaseClient
+        .from('race_state')
+        .update({ 
+          horses: horses,
+          last_update_time: new Date().toISOString()
+        })
+        .eq('id', currentRaceState.id)
+
+      if (updateError) {
+        console.error('❌ Error adding horses:', updateError)
+        return new Response(JSON.stringify({ 
+          status: 'error', 
+          message: 'Failed to add horses to race state'
+        }), {
+          headers: { 
+            'Access-Control-Allow-Origin': '*', 
+            'Content-Type': 'application/json' 
+          },
+          status: 500,
+        });
       }
-    )
+      
+      console.log('✅ SUCCESS: Horses added to existing race state')
+      return new Response(JSON.stringify({ 
+        status: 'horses_added', 
+        horses: horses.length,
+        message: 'Horses added to existing race'
+      }), {
+        headers: { 
+          'Access-Control-Allow-Origin': '*', 
+          'Content-Type': 'application/json' 
+        },
+        status: 200,
+      });
+    }
+
+    console.log('✅ Race state has horses:', currentRaceState.horses.length)
+    return new Response(JSON.stringify({ 
+      status: 'ok', 
+      horses: currentRaceState.horses.length,
+      race_state: currentRaceState.race_state,
+      message: 'Race server running with horses'
+    }), {
+      headers: { 
+        'Access-Control-Allow-Origin': '*', 
+        'Content-Type': 'application/json' 
+      },
+      status: 200,
+    });
+
+  } catch (error) {
+    console.error('❌ Race server error:', error)
+    return new Response(JSON.stringify({ 
+      status: 'error', 
+      message: error.message 
+    }), {
+      headers: { 
+        'Access-Control-Allow-Origin': '*', 
+        'Content-Type': 'application/json' 
+      },
+      status: 500,
+    });
   }
-})
+});
 
 // Auto-initialize and start the race loop immediately on server startup
 async function initializeCleanRaceState() {
