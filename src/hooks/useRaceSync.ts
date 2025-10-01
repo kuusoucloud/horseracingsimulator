@@ -90,7 +90,7 @@ export function useRaceSync() {
     }
   }, []);
 
-  // Load initial race state and start aggressive polling
+  // Load initial race state and start moderate polling
   useEffect(() => {
     const loadRaceState = async () => {
       if (!supabase) return;
@@ -120,9 +120,9 @@ export function useRaceSync() {
 
     loadRaceState();
 
-    // Start aggressive polling every 500ms for truly "live" updates
-    console.log('🔄 Starting aggressive polling every 500ms for live updates...');
-    pollingInterval.current = setInterval(pollRaceState, 500);
+    // Start moderate polling every 1000ms (1 second) to match server updates
+    console.log('🔄 Starting polling every 1000ms to match server timing...');
+    pollingInterval.current = setInterval(pollRaceState, 1000);
 
     return () => {
       if (pollingInterval.current) {

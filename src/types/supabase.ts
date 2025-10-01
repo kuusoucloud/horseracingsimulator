@@ -51,6 +51,7 @@ export type Database = {
         Row: {
           countdown_timer: number | null
           created_at: string | null
+          finish_timer: number | null
           horses: Json
           id: string
           photo_finish_results: Json | null
@@ -69,6 +70,7 @@ export type Database = {
         Insert: {
           countdown_timer?: number | null
           created_at?: string | null
+          finish_timer?: number | null
           horses?: Json
           id?: string
           photo_finish_results?: Json | null
@@ -87,6 +89,7 @@ export type Database = {
         Update: {
           countdown_timer?: number | null
           created_at?: string | null
+          finish_timer?: number | null
           horses?: Json
           id?: string
           photo_finish_results?: Json | null
