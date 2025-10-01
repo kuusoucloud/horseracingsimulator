@@ -947,34 +947,52 @@ Deno.serve(async (req) => {
   }
 })
 
-// Auto-start the race loop when the function loads
-console.log('🏇 Race server function loaded, starting autonomous race loop...')
-
 // Auto-initialize and start the race loop immediately on server startup
 async function initializeCleanRaceState() {
   try {
-    console.log('🧹 Cleaning up any existing race state...')
+    console.log('🧹 Server startup - cleaning up any existing race state...')
     
-    // Delete any existing race state
+    // Delete any existing race state to ensure clean start
     await supabaseClient
       .from('race_state')
       .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000')
+      .gte('id', '00000000-0000-0000-0000-000000000000') // Delete everything
     
     console.log('✅ Existing race state cleared')
     
-    // Start a fresh race
-    await startNewRace()
+    // Wait a moment to ensure deletion is complete
+    await new Promise(resolve => setTimeout(resolve, 200))
+    
+    // CRITICAL: Force create a fresh race with horses immediately
+    console.log('🏇 FORCE creating initial race with horses on server startup...')
+    const newRace = await startNewRace()
+    
+    if (newRace && newRace.horses && newRace.horses.length > 0) {
+      console.log('✅ SUCCESS: Initial race created with horses:', newRace.horses.map(h => ({ name: h.name, elo: h.elo })))
+    } else {
+      console.error('❌ FAILED: Initial race creation did not produce horses')
+    }
     
     console.log('🏁 Clean race state initialized - starting autonomous loop...')
     startRaceLoop()
     
   } catch (error) {
     console.error('❌ Error initializing clean race state:', error)
+    
+    // Fallback: Try to create race again
+    try {
+      console.log('🔄 Fallback: Attempting to create race again...')
+      await startNewRace()
+      console.log('✅ Fallback race creation completed')
+    } catch (fallbackError) {
+      console.error('❌ Fallback race creation also failed:', fallbackError)
+    }
+    
     // Still start the loop even if cleanup fails
     startRaceLoop()
   }
 }
 
-// Auto-start the race loop immediately when the function loads
+// CRITICAL: Auto-start the race loop immediately when the function loads
+console.log('🚀 Race server function loaded - IMMEDIATELY initializing with horses...')
 initializeCleanRaceState()
