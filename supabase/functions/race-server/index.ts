@@ -497,11 +497,12 @@ async function updateRaceState() {
       (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) ||
       (raceState.race_state === 'countdown' && raceState.countdown_timer > 0) ||
       (raceState.race_state === 'racing') ||
-      (raceState.race_state === 'finished' && (!raceState.finish_timer || raceState.finish_timer <= 10))
+      (raceState.race_state === 'finished' && raceState.finish_timer < 10)
     )
 
     if (!needsUpdate) {
       // Race is in a stable state, no update needed
+      console.log(`⏸️ Race stable - State: ${raceState.race_state}, Timer: ${raceState.finish_timer || 0}`)
       return
     }
 
@@ -701,54 +702,58 @@ async function updateRaceState() {
     }
     // Handle FINISHED state with photo finish or results display
     else if (raceState.race_state === 'finished') {
-      // Use a proper timer field instead of updated_at for precise timing
-      if (!raceState.finish_timer) {
-        // First time entering finished state - initialize timer
+      const currentFinishTimer = raceState.finish_timer || 0
+      const newFinishTimer = currentFinishTimer + 1
+      
+      console.log(`🏁 Finish timer: ${currentFinishTimer} -> ${newFinishTimer}`)
+      
+      // Handle photo finish sequence (3 seconds)
+      if (raceState.show_photo_finish && newFinishTimer <= 3) {
         updateData = {
-          finish_timer: 0
+          finish_timer: newFinishTimer
         }
-        message = 'Race finished - starting finish timer'
-      } else {
-        const currentFinishTimer = raceState.finish_timer || 0
-        const newFinishTimer = currentFinishTimer + 1
-        
-        // Handle photo finish sequence (3 seconds)
-        if (raceState.show_photo_finish && newFinishTimer <= 3) {
-          updateData = {
-            finish_timer: newFinishTimer
-          }
-          message = `Photo finish display: ${newFinishTimer}/3 seconds`
+        message = `Photo finish display: ${newFinishTimer}/3 seconds`
+      }
+      // Transition from photo finish to results
+      else if (raceState.show_photo_finish && newFinishTimer > 3 && newFinishTimer <= 13) {
+        updateData = {
+          finish_timer: newFinishTimer,
+          show_photo_finish: false,
+          show_results: true
         }
-        // Transition from photo finish to results
-        else if (raceState.show_photo_finish && newFinishTimer > 3) {
-          updateData = {
-            finish_timer: newFinishTimer,
+        message = 'Photo finish complete - showing results'
+      }
+      // Handle results display (10 seconds total)
+      else if (raceState.show_results && newFinishTimer <= 10) {
+        updateData = {
+          finish_timer: newFinishTimer
+        }
+        message = `Results display: ${newFinishTimer}/10 seconds`
+      }
+      // Start new race after results display
+      else if (newFinishTimer > 10) {
+        console.log('🔄 Results shown for 10 seconds, starting new race...')
+        // Clear all display states before starting new race
+        await supabaseClient
+          .from('race_state')
+          .update({ 
             show_photo_finish: false,
-            show_results: true
-          }
-          message = 'Photo finish complete - showing results'
+            show_results: false,
+            finish_timer: 0
+          })
+          .eq('id', raceState.id)
+        
+        // Start new race
+        await startNewRace()
+        return
+      }
+      // Auto-fallback if no display states are set
+      else if (!raceState.show_photo_finish && !raceState.show_results && newFinishTimer <= 10) {
+        updateData = {
+          finish_timer: newFinishTimer,
+          show_results: true
         }
-        // Handle results display (10 seconds total from finish)
-        else if (raceState.show_results && newFinishTimer <= 10) {
-          updateData = {
-            finish_timer: newFinishTimer
-          }
-          message = `Results display: ${newFinishTimer}/10 seconds`
-        }
-        // Start new race after results display (10 seconds)
-        else if (newFinishTimer > 10) {
-          console.log('🔄 Results shown for 10 seconds, starting new race...')
-          await startNewRace()
-          return
-        }
-        // Auto-fallback if no display states are set
-        else if (!raceState.show_photo_finish && !raceState.show_results) {
-          updateData = {
-            finish_timer: newFinishTimer,
-            show_results: true
-          }
-          message = 'Auto-showing results'
-        }
+        message = 'Auto-showing results'
       }
     }
 
