@@ -43,37 +43,39 @@ export function useRaceSync() {
         console.log('🏇 Loading current race state...');
 
         // Load current race state
-        const { data: currentRace, error } = await supabase
-          .from('race_state')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        if (supabase) {
+          const { data: currentRace, error } = await supabase
+            .from('race_state')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        if (error) {
-          console.error('❌ Error loading race:', error);
-        } else if (currentRace) {
-          console.log('🏇 Loaded race:', currentRace.race_state);
-          // Type-safe conversion from database row to RaceData
-          const raceDataFromDB: RaceData = {
-            id: currentRace.id,
-            race_state: currentRace.race_state as RaceState,
-            horses: (currentRace.horses as any) || [],
-            race_progress: (currentRace.race_progress as any) || {},
-            pre_race_timer: currentRace.pre_race_timer || 0,
-            countdown_timer: currentRace.countdown_timer || undefined,
-            race_timer: currentRace.race_timer || undefined,
-            race_start_time: currentRace.race_start_time || undefined,
-            race_results: (currentRace.race_results as any) || [],
-            show_photo_finish: currentRace.show_photo_finish || false,
-            show_results: currentRace.show_results || false,
-            photo_finish_results: (currentRace.photo_finish_results as any) || [],
-            weather_conditions: (currentRace.weather_conditions as any) || undefined,
-            timer_owner: currentRace.timer_owner || undefined,
-          };
-          setRaceData(raceDataFromDB);
-        } else {
-          console.log('🏇 No race found, database will create one on first tick');
+          if (error) {
+            console.error('❌ Error loading race:', error);
+          } else if (currentRace) {
+            console.log('🏇 Loaded race:', currentRace.race_state);
+            // Type-safe conversion from database row to RaceData
+            const raceDataFromDB: RaceData = {
+              id: currentRace.id,
+              race_state: currentRace.race_state as RaceState,
+              horses: (currentRace.horses as any) || [],
+              race_progress: (currentRace.race_progress as any) || {},
+              pre_race_timer: currentRace.pre_race_timer || 0,
+              countdown_timer: currentRace.countdown_timer || undefined,
+              race_timer: currentRace.race_timer || undefined,
+              race_start_time: currentRace.race_start_time || undefined,
+              race_results: (currentRace.race_results as any) || [],
+              show_photo_finish: currentRace.show_photo_finish || false,
+              show_results: currentRace.show_results || false,
+              photo_finish_results: (currentRace.photo_finish_results as any) || [],
+              weather_conditions: (currentRace.weather_conditions as any) || undefined,
+              timer_owner: currentRace.timer_owner || undefined,
+            };
+            setRaceData(raceDataFromDB);
+          } else {
+            console.log('🏇 No race found, database will create one on first tick');
+          }
         }
 
         setIsConnected(true);
@@ -149,10 +151,12 @@ export function useRaceSync() {
     timerInterval.current = setInterval(async () => {
       try {
         // Call database function directly - no edge function needed!
-        const { error } = await supabase.rpc('trigger_race_tick');
-        
-        if (error) {
-          console.error('❌ Database tick error:', error);
+        if (supabase) {
+          const { error } = await supabase.rpc('trigger_race_tick');
+          
+          if (error) {
+            console.error('❌ Database tick error:', error);
+          }
         }
       } catch (error) {
         console.error('❌ Timer error:', error);
