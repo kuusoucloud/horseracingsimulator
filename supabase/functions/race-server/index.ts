@@ -496,35 +496,22 @@ async function updateRaceState() {
 
     // Track real seconds using timestamps instead of simple counters
     const now = Date.now()
-    const lastUpdate = raceState.last_update_time ? new Date(raceState.last_update_time).getTime() : (now - 1000) // Default to 1 second ago if no timestamp
+    const lastUpdate = raceState.last_update_time ? new Date(raceState.last_update_time).getTime() : (now - 1100) // Default to 1.1 seconds ago if no timestamp
     const timeDelta = (now - lastUpdate) / 1000 // Convert to seconds
     
-    // Only update timers if at least 0.9 seconds have passed (allow for slight timing variations)
-    const shouldUpdateTimers = timeDelta >= 0.9
+    // Only update timers if at least 1 full second has passed
+    const shouldUpdateTimers = timeDelta >= 1.0
 
     let updateData: any = {
       last_update_time: new Date(now).toISOString() // Always update timestamp
     }
     let message = 'Timestamp updated'
 
-    // Only update if race actually needs progression - simplified logic
-    const needsUpdate = (
-      (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) ||
-      (raceState.race_state === 'countdown' && (raceState.countdown_timer || 0) > 0) ||
-      (raceState.race_state === 'racing') ||
-      (raceState.race_state === 'finished' && (raceState.finish_timer || 0) <= 10)
-    )
-
-    if (!needsUpdate && !shouldUpdateTimers) {
-      // Race is in a stable state, no update needed
-      return
-    }
-
     // Handle PRE-RACE TIMER (10 seconds countdown)
     if (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) {
       if (shouldUpdateTimers) {
         const newTimer = Math.max(0, raceState.pre_race_timer - 1)
-        console.log(`⏰ Pre-race timer: ${raceState.pre_race_timer} -> ${newTimer}`)
+        console.log(`⏰ Pre-race timer: ${raceState.pre_race_timer} -> ${newTimer} (delta: ${timeDelta.toFixed(2)}s)`)
 
         if (newTimer > 0) {
           updateData = { 
@@ -551,7 +538,7 @@ async function updateRaceState() {
       if (shouldUpdateTimers) {
         const currentCountdown = raceState.countdown_timer || 10
         const newCountdown = Math.max(0, currentCountdown - 1)
-        console.log(`⏰ Countdown timer: ${currentCountdown} -> ${newCountdown}`)
+        console.log(`⏰ Countdown timer: ${currentCountdown} -> ${newCountdown} (delta: ${timeDelta.toFixed(2)}s)`)
 
         if (newCountdown > 0) {
           updateData = { 
@@ -591,7 +578,7 @@ async function updateRaceState() {
       if (shouldUpdateTimers) {
         const currentRaceTimer = raceState.race_timer || 0
         const newRaceTimer = currentRaceTimer + 1
-        console.log(`⏰ Race timer: ${currentRaceTimer} -> ${newRaceTimer}`)
+        console.log(`⏰ Race timer: ${currentRaceTimer} -> ${newRaceTimer} (delta: ${timeDelta.toFixed(2)}s)`)
 
         let raceProgress: RaceProgress = raceState.race_progress || {}
         const horses = raceState.horses || []
@@ -724,7 +711,7 @@ async function updateRaceState() {
         const currentFinishTimer = raceState.finish_timer || 0
         const newFinishTimer = currentFinishTimer + 1
         
-        console.log(`🏁 Finish timer: ${currentFinishTimer} -> ${newFinishTimer}`)
+        console.log(`🏁 Finish timer: ${currentFinishTimer} -> ${newFinishTimer} (delta: ${timeDelta.toFixed(2)}s)`)
         
         // Handle photo finish sequence (3 seconds)
         if (raceState.show_photo_finish && newFinishTimer <= 3) {
@@ -775,19 +762,21 @@ async function updateRaceState() {
       }
     }
 
-    // Apply updates
-    const { error: updateError } = await supabaseClient
-      .from('race_state')
-      .update(updateData)
-      .eq('id', raceState.id)
+    // Apply updates only if we have meaningful changes
+    if (shouldUpdateTimers || Object.keys(updateData).length > 1) {
+      const { error: updateError } = await supabaseClient
+        .from('race_state')
+        .update(updateData)
+        .eq('id', raceState.id)
 
-    if (updateError) {
-      console.error('Error updating race state:', updateError)
-      return
-    }
+      if (updateError) {
+        console.error('Error updating race state:', updateError)
+        return
+      }
 
-    if (shouldUpdateTimers) {
-      console.log('✅ Race state updated:', message)
+      if (shouldUpdateTimers) {
+        console.log('✅ Race state updated:', message)
+      }
     }
 
   } catch (error) {
