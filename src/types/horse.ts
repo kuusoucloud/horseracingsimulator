@@ -12,6 +12,7 @@ export interface Horse {
   earlyAdvantage?: number; // Early race speed multiplier
   isEarlyRunner?: boolean; // Whether this horse performs well early
   lane?: number; // Lane assignment
+  position?: number; // Current race position (0-1200m)
 }
 
 export interface RaceProgress {
