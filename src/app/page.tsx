@@ -36,7 +36,6 @@ export default function Home() {
   const countdownTimer = syncedData?.countdown_timer || 0;
   const raceTimer = syncedData?.race_timer || 0;
   const raceResults = syncedData?.race_results || [];
-  const raceProgress = syncedData?.race_progress || {};
   
   // Server-managed UI states
   const showPhotoFinishFromServer = syncedData?.show_photo_finish || false;
@@ -55,14 +54,29 @@ export default function Home() {
     }
   }, [serverWeatherConditions]);
 
-  // Convert server race progress to display format
-  const displayProgress = Object.entries(raceProgress).map(([horseId, data]: [string, any]) => ({
-    id: horseId,
-    name: horses.find(h => h.id === horseId)?.name || 'Unknown',
-    position: data.position || 0,
-    speed: data.speed || 0,
-    horse: horses.find(h => h.id === horseId)
+  // Convert horses array to display format (horses have position data during race)
+  const displayProgress = horses.map(horse => ({
+    id: horse.id,
+    name: horse.name,
+    position: horse.position || 0, // Use position directly from horse object
+    speed: 0, // Speed calculation can be added later if needed
+    horse: horse
   }));
+
+  // Debug race progress data
+  useEffect(() => {
+    if (horses.length > 0 && raceState === 'racing') {
+      console.log('🏇 Horse Position Data:', {
+        raceState,
+        raceTimer,
+        sampleHorses: horses.slice(0, 3).map(h => ({
+          id: h.id,
+          name: h.name,
+          position: h.position || 0
+        }))
+      });
+    }
+  }, [horses, raceState, raceTimer]);
 
   // Update UI states based on server
   useEffect(() => {
@@ -161,13 +175,7 @@ export default function Home() {
             <RaceTrack 
               horses={horses} 
               raceState={raceState}
-              progress={displayProgress.length > 0 ? displayProgress : horses.map(horse => ({
-                id: horse.id,
-                name: horse.name,
-                position: 0,
-                speed: 0,
-                horse: horse
-              }))}
+              progress={displayProgress}
               isRacing={raceState === 'racing'}
               serverWeatherConditions={serverWeatherConditions}
             />

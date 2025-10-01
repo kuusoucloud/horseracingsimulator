@@ -1296,6 +1296,22 @@ export default function RaceTrack({
     setIsClient(true);
   }, []);
 
+  // Debug progress data
+  useEffect(() => {
+    if (progress.length > 0 && isRacing) {
+      console.log('🏁 RaceTrack received progress:', {
+        raceState,
+        isRacing,
+        progressCount: progress.length,
+        samplePositions: progress.slice(0, 3).map(p => ({
+          name: p.name,
+          position: p.position,
+          speed: p.speed
+        }))
+      });
+    }
+  }, [progress, isRacing, raceState]);
+
   // Use server weather conditions if available, otherwise generate client-side fallback
   const weatherConditions = useMemo(() => {
     console.log('🌤️ Using server weather conditions:', serverWeatherConditions);
