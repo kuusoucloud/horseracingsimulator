@@ -506,14 +506,36 @@ async function updateRaceState() {
       return
     }
 
-    // If no race state or multiple states, clean up and create new one
+    // If no race state exists, create initial race with horses
     if (!raceStates || raceStates.length === 0) {
-      console.log('No race state found, creating new race...')
+      console.log('🚀 No race state found - creating initial race with horses...')
       await startNewRace()
       return
     }
 
     const raceState = raceStates[0] // Get the most recent one
+
+    // CRITICAL: If race state exists but has no horses, regenerate them
+    if (!raceState.horses || raceState.horses.length === 0) {
+      console.log('🏇 Race state exists but no horses found - generating horses...')
+      const horses = await generateRandomHorsesWithELO(8)
+      
+      const { error: updateError } = await supabaseClient
+        .from('race_state')
+        .update({ 
+          horses: horses,
+          last_update_time: new Date().toISOString()
+        })
+        .eq('id', raceState.id)
+
+      if (updateError) {
+        console.error('Error adding horses to existing race:', updateError)
+        return
+      }
+      
+      console.log('✅ Horses added to existing race state:', horses.map(h => ({ name: h.name, elo: h.elo })))
+      return
+    }
 
     // CRITICAL: Never modify horses array during race cycle
     // Horses are LOCKED from pre-race through finished state
