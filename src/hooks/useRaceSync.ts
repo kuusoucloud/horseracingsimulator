@@ -52,7 +52,7 @@ export function useRaceSync() {
         console.log('🚀 Starting autonomous race server...');
         hasStartedServer.current = true;
         
-        const { data, error } = await supabase.functions.invoke('race-server', {
+        const { data, error } = await supabase.functions.invoke('supabase-functions-race-server', {
           body: {},
         });
 
@@ -74,7 +74,7 @@ export function useRaceSync() {
     if (!supabase) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('race-timer', {
+      const { data, error } = await supabase.functions.invoke('supabase-functions-race-timer', {
         body: {},
       });
 
