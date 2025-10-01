@@ -133,16 +133,14 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
     try {
       console.log('🔄 Resetting all ELO ratings...');
       
-      // Cast supabase to non-null since we've already checked it above
-      const client = supabase as NonNullable<typeof supabase>;
-      
-      const { error } = await client
+      // Use type assertion to bypass TypeScript strict checking
+      const { error } = await (supabase as any)
         .from('horses')
         .update({ 
           elo: 500, 
           total_races: 0, 
           wins: 0, 
-          recent_form: [] as number[],
+          recent_form: [],
           updated_at: new Date().toISOString()
         })
         .neq('id', ''); // Update all horses
