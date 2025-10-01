@@ -926,9 +926,16 @@ Deno.serve(async (req) => {
     if (!currentRaceState.horses || currentRaceState.horses.length === 0) {
       console.log('❌ Race state exists but NO HORSES - FORCE adding horses NOW...')
       
-      // Generate horses using the simple function first
-      const horses = generateRandomHorses(8)
-      console.log('🏇 Generated horses:', horses.map(h => ({ name: h.name, elo: h.elo })))
+      // Generate horses using the ELO function (fallback to simple if needed)
+      let horses
+      try {
+        horses = await generateRandomHorsesWithELO(8)
+        console.log('🏇 Generated horses with ELO:', horses.map(h => ({ name: h.name, elo: h.elo })))
+      } catch (error) {
+        console.error('❌ ELO generation failed, using simple generation:', error)
+        horses = generateRandomHorses(8)
+        console.log('🏇 Generated simple horses:', horses.map(h => ({ name: h.name, elo: h.elo || 500 })))
+      }
       
       const { error: updateError } = await supabaseClient
         .from('race_state')
@@ -942,7 +949,8 @@ Deno.serve(async (req) => {
         console.error('❌ Error adding horses:', updateError)
         return new Response(JSON.stringify({ 
           status: 'error', 
-          message: 'Failed to add horses to race state'
+          message: 'Failed to add horses to race state',
+          error: updateError.message
         }), {
           headers: { 
             'Access-Control-Allow-Origin': '*', 
