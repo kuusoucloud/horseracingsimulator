@@ -24,6 +24,16 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   -- Just update the race_control table to trigger the race advancement
-  UPDATE race_control SET last_tick = NOW() WHERE is_active = true;
+  -- Add WHERE clause to fix the error
+  UPDATE race_control 
+  SET last_tick = NOW() 
+  WHERE is_active = true;
+  
+  -- If no active control record exists, create one
+  IF NOT FOUND THEN
+    INSERT INTO race_control (is_active, last_tick) 
+    VALUES (true, NOW())
+    ON CONFLICT DO NOTHING;
+  END IF;
 END;
 $$;
