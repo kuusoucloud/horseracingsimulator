@@ -30,6 +30,7 @@ export function useRaceSync() {
   const [clientHorses, setClientHorses] = useState<Horse[]>([]); // Client-side horse cache
   const hasStartedServer = useRef(false);
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+  const timerInterval = useRef<NodeJS.Timeout | null>(null);
   const lastRaceId = useRef<string | null>(null);
 
   // Set connection status based on Supabase availability
@@ -66,6 +67,25 @@ export function useRaceSync() {
     };
 
     startRaceServer();
+  }, []);
+
+  // Timer function to call race-timer edge function
+  const callRaceTimer = useCallback(async () => {
+    if (!supabase) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('supabase-functions-race-timer', {
+        body: {},
+      });
+
+      if (error) {
+        console.error('❌ Race timer error:', error);
+      } else {
+        console.log('⏰ Timer tick:', data?.message || 'Timer updated');
+      }
+    } catch (error) {
+      console.error('❌ Error calling race timer:', error);
+    }
   }, []);
 
   // Enhanced polling function with client-side horse caching
@@ -152,6 +172,10 @@ export function useRaceSync() {
 
     loadRaceState();
 
+    // Start the race timer - calls race-timer function every second
+    console.log('⏰ Starting race timer - calling race-timer function every 1000ms');
+    timerInterval.current = setInterval(callRaceTimer, 1000);
+
     // Slower polling for UI components: 300ms for smooth updates without overwhelming
     console.log('🔄 Starting balanced polling every 300ms for smooth updates...');
     pollingInterval.current = setInterval(pollRaceState, 300);
@@ -161,8 +185,12 @@ export function useRaceSync() {
         clearInterval(pollingInterval.current);
         pollingInterval.current = null;
       }
+      if (timerInterval.current) {
+        clearInterval(timerInterval.current);
+        timerInterval.current = null;
+      }
     };
-  }, [pollRaceState]);
+  }, [pollRaceState, callRaceTimer]);
 
   // Subscribe to real-time updates (backup to polling)
   useEffect(() => {
