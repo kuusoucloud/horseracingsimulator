@@ -21,6 +21,9 @@ export default function Home() {
   const [showResults, setShowResults] = useState(false);
   const [eloRefreshTrigger, setEloRefreshTrigger] = useState(0);
   
+  // Betting state (placeholder - not used in server-controlled version)
+  const [selectedBet, setSelectedBet] = useState<{ horseId: string; amount: number } | null>(null);
+  
   // Photo Finish states
   const [showPhotoFinish, setShowPhotoFinish] = useState(false);
   const [photoFinishResults, setPhotoFinishResults] = useState<RaceResult[] | null>(null);
@@ -180,6 +183,12 @@ export default function Home() {
   const handlePhotoFinishComplete = (finalResults: RaceResult[]) => {
     console.log('📸 Photo finish complete - server will handle transition to results');
     // Server handles the transition, client just acknowledges
+  };
+
+  // Betting handler (placeholder - not used in server-controlled version)
+  const handlePlaceBet = (horseId: string, amount: number) => {
+    console.log('🎰 Bet placed:', { horseId, amount });
+    setSelectedBet({ horseId, amount });
   };
 
   // Don't render until client-side hydration is complete
