@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
+import type { Database } from '@/types/supabase';
+
+type HorseUpdate = Database['public']['Tables']['horses']['Update'];
 
 interface Horse {
   name: string;
@@ -133,15 +136,17 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
     try {
       console.log('🔄 Resetting all ELO ratings...');
       
+      const updateData: HorseUpdate = {
+        elo: 500, 
+        total_races: 0, 
+        wins: 0, 
+        recent_form: [],
+        updated_at: new Date().toISOString()
+      };
+      
       const { error } = await supabase
         .from('horses')
-        .update({ 
-          elo: 500, 
-          total_races: 0, 
-          wins: 0, 
-          recent_form: [] as number[],
-          updated_at: new Date().toISOString()
-        } as any)
+        .update(updateData)
         .gt('id', ''); // Update all horses with a valid condition
       
       if (error) {
