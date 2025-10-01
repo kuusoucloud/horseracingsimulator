@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Horse, RaceState } from "@/types/horse";
+import { supabase } from '@/lib/supabase';
 
 interface RaceControllerProps {
   horses: Horse[];
