@@ -23,6 +23,7 @@ interface RaceResult {
   finishTime: number;
   lane: number;
   odds: number;
+  gap?: string; // Add gap property
   horse?: {
     id: string;
     name: string;
