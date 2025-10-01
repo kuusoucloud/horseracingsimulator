@@ -87,6 +87,7 @@ Deno.serve(async (req) => {
         message = `Pre-race timer updated to ${newTimer}`
       } else {
         // Timer reached 0, start countdown phase
+        console.log('🏁 Pre-race timer finished - starting countdown phase')
         updateData = { 
           pre_race_timer: 0,
           race_state: 'countdown',
@@ -110,6 +111,7 @@ Deno.serve(async (req) => {
         message = `Countdown timer updated to ${newCountdown}`
       } else {
         // Countdown finished, start race with initial horse positions
+        console.log('🏇 Countdown finished - starting race!')
         const initialRaceProgress: RaceProgress = {}
         
         // Initialize all horses at position 0
@@ -211,33 +213,37 @@ Deno.serve(async (req) => {
 
       // Check if race should finish
       if (allFinished || newRaceTimer >= 80) {
+        console.log(`🏁 Race finishing - All finished: ${allFinished}, Timer: ${newRaceTimer}s`)
         updateData.race_state = 'finished'
         message = allFinished ? 'All horses finished!' : 'Race auto-finished after 80 seconds'
         
-        // Create final results
+        // Create final results sorted by finish time and position
         const results = horses.map((horse: any, index: number) => {
           const progress = raceProgress[horse.id]
-          const placement = progress?.finished ? 
-            finishedHorses.findIndex(f => f.id === horse.id) + 1 : 
-            horses.length
-          
           return {
             id: horse.id,
             name: horse.name,
             position: progress?.position || 0,
             finishTime: progress?.finishTime || newRaceTimer,
-            placement: placement,
+            finished: progress?.finished || false,
             lane: index + 1,
             odds: horse.odds || 2.0,
-            gap: placement === 1 ? "0.00s" : `+${((progress?.finishTime || newRaceTimer) - (finishedHorses[0]?.finishTime || newRaceTimer)).toFixed(2)}s`,
             horse: horse
           }
         }).sort((a, b) => {
-          if (a.placement !== b.placement) return a.placement - b.placement
-          return a.finishTime - b.finishTime
-        })
+          // Sort by: finished first, then by finish time, then by position
+          if (a.finished && !b.finished) return -1
+          if (!a.finished && b.finished) return 1
+          if (a.finished && b.finished) return a.finishTime - b.finishTime
+          return b.position - a.position // Higher position = better placement for unfinished
+        }).map((result, index) => ({
+          ...result,
+          placement: index + 1,
+          gap: index === 0 ? "0.00s" : `+${(result.finishTime - results[0].finishTime).toFixed(2)}s`
+        }))
         
         updateData.race_results = results
+        console.log('🏆 Final results:', results.map(r => `${r.placement}. ${r.name} (${r.finishTime}s)`))
       }
     }
 

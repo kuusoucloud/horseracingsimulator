@@ -1,4 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// Import the horses module for proper ELO-based generation
+import { generateRandomHorses, calculateOddsFromELO } from './horses.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,41 +41,6 @@ function generateWeatherConditions() {
   }
 }
 
-// Simple horse generation function with odds calculation
-function generateSimpleHorses(count: number) {
-  const names = [
-    'Thunder Bolt', 'Lightning Strike', 'Storm Chaser', 'Wind Runner',
-    'Fire Spirit', 'Golden Arrow', 'Silver Bullet', 'Midnight Express'
-  ]
-  
-  const horses = []
-  for (let i = 0; i < count; i++) {
-    const speed = Math.random() * 20 + 80
-    const stamina = Math.random() * 20 + 80
-    const acceleration = Math.random() * 20 + 80
-    const elo = 500 + Math.floor(Math.random() * 400)
-    
-    // Calculate odds based on overall skill (average of speed, stamina, acceleration)
-    const overallSkill = (speed + stamina + acceleration) / 3
-    // Convert skill to odds (higher skill = lower odds)
-    const baseOdds = Math.max(1.5, 15 - (overallSkill - 80) * 0.5)
-    const odds = Math.round(baseOdds * 100) / 100 // Round to 2 decimal places
-    
-    horses.push({
-      id: (i + 1).toString(),
-      name: names[i],
-      speed: speed,
-      stamina: stamina,
-      acceleration: acceleration,
-      elo: elo,
-      odds: odds,
-      position: 0,
-      lane: i + 1
-    })
-  }
-  return horses
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders, status: 200 });
@@ -91,11 +57,12 @@ Deno.serve(async (req) => {
       .single()
 
     if (fetchError || !currentRaceState) {
-      console.log('❌ No race state - creating with horses...')
+      console.log('❌ No race state - creating with ELO-based horses...')
       
-      const horses = generateSimpleHorses(8)
+      // Use proper ELO-based horse generation
+      const horses = generateRandomHorses(8)
       const weather = generateWeatherConditions()
-      console.log('🏇 Generated horses:', horses.map(h => `${h.name} (${h.odds}:1)`))
+      console.log('🏇 Generated ELO-based horses:', horses.map(h => `${h.name} (ELO: ${h.elo}, Odds: ${h.odds}:1)`))
       console.log('🌤️ Generated weather:', weather)
       
       // Use the correct schema fields that match the database
@@ -127,7 +94,7 @@ Deno.serve(async (req) => {
         status: 'race_created', 
         horses: horses.length,
         weather: weather,
-        message: 'New race created with horses and weather'
+        message: 'New race created with ELO-based horses and weather'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -135,10 +102,12 @@ Deno.serve(async (req) => {
     }
 
     if (!currentRaceState.horses || currentRaceState.horses.length === 0) {
-      console.log('❌ No horses - adding them...')
+      console.log('❌ No horses - adding ELO-based horses...')
       
-      const horses = generateSimpleHorses(8)
+      // Use proper ELO-based horse generation
+      const horses = generateRandomHorses(8)
       const weather = currentRaceState.weather_conditions || generateWeatherConditions()
+      console.log('🏇 Generated ELO-based horses:', horses.map(h => `${h.name} (ELO: ${h.elo}, Odds: ${h.odds}:1)`))
       
       const { error: updateError } = await supabaseClient
         .from('race_state')
@@ -163,7 +132,56 @@ Deno.serve(async (req) => {
         status: 'horses_added', 
         horses: horses.length,
         weather: weather,
-        message: 'Horses and weather added'
+        message: 'ELO-based horses and weather added'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
+
+    // Check if race is finished and needs to restart
+    if (currentRaceState.race_state === 'finished') {
+      console.log('🔄 Race finished - starting new race with fresh ELO-based horses...')
+      
+      // Generate new horses for the next race
+      const horses = generateRandomHorses(8)
+      const weather = generateWeatherConditions()
+      console.log('🏇 New race horses:', horses.map(h => `${h.name} (ELO: ${h.elo}, Odds: ${h.odds}:1)`))
+      
+      const { error: restartError } = await supabaseClient
+        .from('race_state')
+        .update({ 
+          race_state: 'pre-race',
+          horses: horses,
+          race_progress: {},
+          pre_race_timer: 10,
+          countdown_timer: 0,
+          race_timer: 0,
+          race_results: [],
+          show_photo_finish: false,
+          show_results: false,
+          photo_finish_results: [],
+          weather_conditions: weather,
+          race_start_time: null
+        })
+        .eq('id', currentRaceState.id)
+
+      if (restartError) {
+        console.error('❌ Restart error:', restartError)
+        return new Response(JSON.stringify({ 
+          status: 'error', 
+          message: 'Restart failed: ' + restartError.message
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        });
+      }
+      
+      return new Response(JSON.stringify({ 
+        status: 'race_restarted', 
+        horses: horses.length,
+        weather: weather,
+        message: 'New race started with fresh ELO-based horses'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -199,7 +217,7 @@ Deno.serve(async (req) => {
       horses: currentRaceState.horses.length,
       race_state: currentRaceState.race_state,
       weather: currentRaceState.weather_conditions,
-      message: 'Race server running with horses and weather'
+      message: 'Race server running with ELO-based horses and weather'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
