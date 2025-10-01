@@ -89,7 +89,7 @@ export default function RaceController({
               .limit(1)
               .single()
               .then(({ data: currentRace, error: fetchError }) => {
-                if (fetchError || !currentRace) {
+                if (fetchError || !currentRace || !supabase) {
                   console.error('❌ Error fetching current race:', fetchError);
                   return;
                 }
