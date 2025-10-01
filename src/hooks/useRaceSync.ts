@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Horse, RaceState } from '@/types/horse';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import { Horse } from '@/types/horse';
+import { generateRandomHorses } from '@/data/horses';
+import { Database } from '@/types/supabase';
 
 interface RaceStateRow {
   id: string;
@@ -110,18 +111,18 @@ export function useRaceSync() {
         setClientHorses(newHorses);
         
         // Create race state in database
-        const raceData = {
+        const raceData: Database['public']['Tables']['race_state']['Insert'] = {
           race_state: 'pre-race',
-          horses: newHorses as any, // Cast to Json type
-          race_progress: {} as any,
+          horses: newHorses,
+          race_progress: {},
           pre_race_timer: 10,
           countdown_timer: 0,
           race_timer: 0,
           race_start_time: null,
-          race_results: [] as any,
+          race_results: [],
           show_photo_finish: false,
           show_results: false,
-          photo_finish_results: [] as any,
+          photo_finish_results: [],
           weather_conditions: {
             timeOfDay: "day",
             weather: "clear",
@@ -130,7 +131,7 @@ export function useRaceSync() {
             directionalIntensity: 1.0,
             trackColor: "#8B4513",
             grassColor: "#32cd32"
-          } as any,
+          },
           timer_owner: 'client'
         };
 

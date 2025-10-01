@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
+import { Database } from '@/types/supabase'
 
 // Singleton pattern to ensure only one Supabase client instance
-let supabaseInstance: ReturnType<typeof createClient> | null = null
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null
 
 // Create a function to get the Supabase client safely
 export const getSupabaseClient = () => {
@@ -18,8 +19,8 @@ export const getSupabaseClient = () => {
     return null
   }
 
-  // Create and cache the instance
-  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey)
+  // Create and cache the instance with proper typing
+  supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey)
   console.log('✅ Supabase client instance created')
   return supabaseInstance
 }
