@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Horse, RaceResult, Bet } from '@/types/horse';
 import { useRaceSync } from '@/hooks/useRaceSync';
 import HorseLineup from '@/components/HorseLineup';
@@ -9,7 +10,6 @@ import RaceController from '@/components/RaceController';
 import RaceResults from '@/components/RaceResults';
 import EloLeaderboard from '@/components/EloLeaderboard';
 import PhotoFinish from '@/components/PhotoFinish';
-import { createClient } from '@/lib/supabase';
 
 export default function Home() {
   const { syncedData, isConnected } = useRaceSync();
@@ -47,11 +47,11 @@ export default function Home() {
   
   useEffect(() => {
     const fetchHorseEloData = async () => {
-      if (!createClient || horses.length === 0) return;
+      if (!supabase || horses.length === 0) return;
       
       try {
         const horseNames = horses.map(h => h.name);
-        const { data: dbHorses, error } = await createClient()
+        const { data: dbHorses, error } = await supabase
           .from('horses')
           .select('name, elo, total_races, wins, recent_form')
           .in('name', horseNames);
@@ -74,7 +74,7 @@ export default function Home() {
     };
     
     fetchHorseEloData();
-  }, [horses, createClient]);
+  }, [horses, supabase]);
 
   // Merge database ELO data with race horses
   const horsesWithElo = horses.map(horse => ({
