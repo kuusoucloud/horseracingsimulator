@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { getHorseRank } from '@/lib/utils';
@@ -29,7 +31,13 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
   const [topHorses, setTopHorses] = useState<Horse[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [hoveredHorse, setHoveredHorse] = useState<string | null>(null); // Client-side hover state
+  const [hoveredHorse, setHoveredHorse] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Handle client-side hydration
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // ELO Tiers definition - all tiers restored with Mythical as pink, Rookie removed
   const eloTiers = [
@@ -114,32 +122,34 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
   }, []);
 
   const handleReset = async () => {
-    if (confirm('Are you sure you want to reset all ELO ratings to 500? This cannot be undone.')) {
-      try {
-        console.log('🔄 Resetting all ELO ratings...');
-        
-        const { error } = await supabase
-          .from('horses')
-          .update({ 
-            elo: 500, 
-            total_races: 0, 
-            wins: 0, 
-            recent_form: [],
-            updated_at: new Date().toISOString()
-          })
-          .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all horses
-        
-        if (error) {
-          console.error('Error resetting ELO ratings:', error);
-          return;
-        }
-        
-        console.log('✅ All ELO ratings reset to 500');
-        refreshLeaderboard();
-        
-      } catch (error) {
+    if (!isClient || !confirm('Are you sure you want to reset all ELO ratings to 500? This cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      console.log('🔄 Resetting all ELO ratings...');
+      
+      const { error } = await supabase
+        .from('horses')
+        .update({ 
+          elo: 500, 
+          total_races: 0, 
+          wins: 0, 
+          recent_form: [],
+          updated_at: new Date().toISOString()
+        })
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all horses
+      
+      if (error) {
         console.error('Error resetting ELO ratings:', error);
+        return;
       }
+      
+      console.log('��� All ELO ratings reset to 500');
+      refreshLeaderboard();
+      
+    } catch (error) {
+      console.error('Error resetting ELO ratings:', error);
     }
   };
 

@@ -13,6 +13,9 @@ import PhotoFinish from '@/components/PhotoFinish';
 export default function Home() {
   const { syncedData, isConnected } = useRaceSync();
   
+  // Client-side hydration state
+  const [isClient, setIsClient] = useState(false);
+  
   // UI state for displaying results
   const [showResults, setShowResults] = useState(false);
   const [eloRefreshTrigger, setEloRefreshTrigger] = useState(0);
@@ -21,7 +24,12 @@ export default function Home() {
   const [showPhotoFinish, setShowPhotoFinish] = useState(false);
   const [photoFinishResults, setPhotoFinishResults] = useState<RaceResult[] | null>(null);
 
-  // Get data from server
+  // Handle client-side hydration
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Get data from server - with safe defaults
   const horses = syncedData?.horses || [];
   const raceState = syncedData?.race_state || 'pre-race';
   const preRaceTimer = syncedData?.pre_race_timer || 10;
@@ -114,6 +122,15 @@ export default function Home() {
     console.log('📸 Photo finish complete - server will handle transition to results');
     // Server handles the transition, client just acknowledges
   };
+
+  // Don't render until client-side hydration is complete
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 p-4 flex items-center justify-center">
+        <div className="text-white text-xl">Loading Horse Racing App...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 p-4">

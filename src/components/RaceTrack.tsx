@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
@@ -1121,127 +1123,144 @@ function SmoothHorse({
   );
 }
 
-// Create grass texture function - only on client side
+// Create grass texture function - only on client side with hydration safety
 function createGrassTexture() {
   if (typeof window === "undefined") return null;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext("2d")!;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
 
-  // Base grass color
-  const baseColor = "#2d5a2d";
-  ctx.fillStyle = baseColor;
-  ctx.fillRect(0, 0, 512, 512);
+    // Base grass color
+    const baseColor = "#2d5a2d";
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(0, 0, 512, 512);
 
-  // Add grass blade patterns
-  for (let i = 0; i < 8000; i++) {
-    const x = Math.random() * 512;
-    const y = Math.random() * 512;
-    const length = 2 + Math.random() * 6;
-    const width = 0.5 + Math.random() * 1.5;
-    const angle = Math.random() * Math.PI * 2;
+    // Add grass blade patterns with deterministic positioning
+    for (let i = 0; i < 8000; i++) {
+      // Use deterministic values instead of Math.random() for consistency
+      const seed = i * 0.618033988749; // Golden ratio for good distribution
+      const x = (seed % 1) * 512;
+      const y = ((seed * 7) % 1) * 512;
+      const length = 2 + ((seed * 13) % 1) * 6;
+      const width = 0.5 + ((seed * 17) % 1) * 1.5;
+      const angle = ((seed * 23) % 1) * Math.PI * 2;
 
-    // Vary grass colors
-    const grassColors = ["#228b22", "#32cd32", "#2e8b57", "#3cb371", "#20b2aa"];
-    ctx.fillStyle = grassColors[Math.floor(Math.random() * grassColors.length)];
+      // Vary grass colors deterministically
+      const grassColors = ["#228b22", "#32cd32", "#2e8b57", "#3cb371", "#20b2aa"];
+      ctx.fillStyle = grassColors[Math.floor(((seed * 31) % 1) * grassColors.length)];
 
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.fillRect(-width / 2, 0, width, length);
-    ctx.restore();
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.fillRect(-width / 2, 0, width, length);
+      ctx.restore();
+    }
+
+    // Add some dirt patches deterministically
+    for (let i = 0; i < 200; i++) {
+      const seed = i * 0.618033988749;
+      const x = (seed % 1) * 512;
+      const y = ((seed * 7) % 1) * 512;
+      const size = 2 + ((seed * 13) % 1) * 8;
+
+      ctx.fillStyle = "#8B4513";
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(8, 4);
+    return texture;
+  } catch (error) {
+    console.warn('Failed to create grass texture:', error);
+    return null;
   }
-
-  // Add some dirt patches
-  for (let i = 0; i < 200; i++) {
-    const x = Math.random() * 512;
-    const y = Math.random() * 512;
-    const size = 2 + Math.random() * 8;
-
-    ctx.fillStyle = "#8B4513";
-    ctx.globalAlpha = 0.3;
-    ctx.beginPath();
-    ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(8, 4); // Repeat the texture for tiling
-  return texture;
 }
 
-// Create wet grass texture for rainy conditions - only on client side
+// Create wet grass texture for rainy conditions - only on client side with hydration safety
 function createWetGrassTexture() {
   if (typeof window === "undefined") return null;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext("2d")!;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
 
-  // Darker base for wet grass
-  const baseColor = "#1a4a1a";
-  ctx.fillStyle = baseColor;
-  ctx.fillRect(0, 0, 512, 512);
+    // Darker base for wet grass
+    const baseColor = "#1a4a1a";
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(0, 0, 512, 512);
 
-  // Add wet grass blade patterns
-  for (let i = 0; i < 8000; i++) {
-    const x = Math.random() * 512;
-    const y = Math.random() * 512;
-    const length = 2 + Math.random() * 6;
-    const width = 0.5 + Math.random() * 1.5;
-    const angle = Math.random() * Math.PI * 2;
+    // Add wet grass blade patterns deterministically
+    for (let i = 0; i < 8000; i++) {
+      const seed = i * 0.618033988749;
+      const x = (seed % 1) * 512;
+      const y = ((seed * 7) % 1) * 512;
+      const length = 2 + ((seed * 13) % 1) * 6;
+      const width = 0.5 + ((seed * 17) % 1) * 1.5;
+      const angle = ((seed * 23) % 1) * Math.PI * 2;
 
-    // Darker, more saturated grass colors for wet conditions
-    const wetGrassColors = ["#1e5e1e", "#2d5a2d", "#1a4a1a", "#2e4a2e"];
-    ctx.fillStyle =
-      wetGrassColors[Math.floor(Math.random() * wetGrassColors.length)];
+      // Darker, more saturated grass colors for wet conditions
+      const wetGrassColors = ["#1e5e1e", "#2d5a2d", "#1a4a1a", "#2e4a2e"];
+      ctx.fillStyle = wetGrassColors[Math.floor(((seed * 31) % 1) * wetGrassColors.length)];
 
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.fillRect(-width / 2, 0, width, length);
-    ctx.restore();
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.fillRect(-width / 2, 0, width, length);
+      ctx.restore();
+    }
+
+    // Add mud patches for wet track deterministically
+    for (let i = 0; i < 400; i++) {
+      const seed = i * 0.618033988749;
+      const x = (seed % 1) * 512;
+      const y = ((seed * 7) % 1) * 512;
+      const size = 3 + ((seed * 13) % 1) * 10;
+
+      ctx.fillStyle = "#5d4e37";
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // Add water puddle reflections deterministically
+    for (let i = 0; i < 100; i++) {
+      const seed = i * 0.618033988749;
+      const x = (seed % 1) * 512;
+      const y = ((seed * 7) % 1) * 512;
+      const size = 1 + ((seed * 13) % 1) * 4;
+
+      ctx.fillStyle = "#4682b4";
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(8, 4);
+    return texture;
+  } catch (error) {
+    console.warn('Failed to create wet grass texture:', error);
+    return null;
   }
-
-  // Add mud patches for wet track
-  for (let i = 0; i < 400; i++) {
-    const x = Math.random() * 512;
-    const y = Math.random() * 512;
-    const size = 3 + Math.random() * 10;
-
-    ctx.fillStyle = "#5d4e37";
-    ctx.globalAlpha = 0.6;
-    ctx.beginPath();
-    ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-
-  // Add water puddle reflections
-  for (let i = 0; i < 100; i++) {
-    const x = Math.random() * 512;
-    const y = Math.random() * 512;
-    const size = 1 + Math.random() * 4;
-
-    ctx.fillStyle = "#4682b4";
-    ctx.globalAlpha = 0.4;
-    ctx.beginPath();
-    ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(8, 4);
-  return texture;
 }
 
 // Simple null component to resolve the Grandstand reference
@@ -1256,6 +1275,9 @@ export default function RaceTrack({
 }: RaceTrackProps) {
   // Track dimensions - properly scaled for 1200m race
   const numHorses = Math.max(horses.length, progress.length, 8);
+  
+  // Client-side hydration state
+  const [isClient, setIsClient] = useState(false);
 
   // Use horses data if progress is empty or incomplete
   const displayProgress =
@@ -1268,6 +1290,11 @@ export default function RaceTrack({
           speed: 0,
           horse: horse,
         }));
+
+  // Handle client-side hydration
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Use server weather conditions if available, otherwise generate client-side fallback
   const weatherConditions = useMemo(() => {
@@ -1288,14 +1315,43 @@ export default function RaceTrack({
       console.log('❌ No server weather or invalid type:', typeof serverWeatherConditions, serverWeatherConditions);
     }
     
-    // Fallback to client-side generation (should rarely happen)
-    console.log('⚠️ No valid server weather found, using client fallback');
-    return generateWeatherConditions();
+    // Fallback to default conditions (deterministic, no random)
+    console.log('⚠️ No valid server weather found, using default conditions');
+    return {
+      timeOfDay: "day" as const,
+      weather: "clear" as const,
+      skyColor: "#87ceeb",
+      ambientIntensity: 0.4,
+      directionalIntensity: 1.0,
+      trackColor: "#8B4513",
+      grassColor: "#32cd32",
+    };
   }, [serverWeatherConditions]);
 
-  // Create textures only on client side
-  const grassTexture = useMemo(() => createGrassTexture(), []);
-  const wetGrassTexture = useMemo(() => createWetGrassTexture(), []);
+  // Create textures only on client side after hydration
+  const grassTexture = useMemo(() => {
+    if (!isClient) return null;
+    return createGrassTexture();
+  }, [isClient]);
+  
+  const wetGrassTexture = useMemo(() => {
+    if (!isClient) return null;
+    return createWetGrassTexture();
+  }, [isClient]);
+
+  // Don't render 3D content until client-side hydration is complete
+  if (!isClient) {
+    return (
+      <div
+        className="w-full h-full transition-colors duration-1000 relative flex items-center justify-center"
+        style={{
+          background: `linear-gradient(to bottom, ${weatherConditions.skyColor}, ${weatherConditions.skyColor}dd)`,
+        }}
+      >
+        <div className="text-white text-xl">Loading Race Track...</div>
+      </div>
+    );
+  }
 
   return (
     <div
