@@ -111,17 +111,17 @@ export function useRaceSync() {
         
         // Create race state in database
         const raceData = {
-          race_state: 'pre-race' as const,
-          horses: newHorses,
-          race_progress: {},
+          race_state: 'pre-race',
+          horses: newHorses as any, // Cast to Json type
+          race_progress: {} as any,
           pre_race_timer: 10,
           countdown_timer: 0,
           race_timer: 0,
           race_start_time: null,
-          race_results: [],
+          race_results: [] as any,
           show_photo_finish: false,
           show_results: false,
-          photo_finish_results: [],
+          photo_finish_results: [] as any,
           weather_conditions: {
             timeOfDay: "day",
             weather: "clear",
@@ -130,7 +130,7 @@ export function useRaceSync() {
             directionalIntensity: 1.0,
             trackColor: "#8B4513",
             grassColor: "#32cd32"
-          },
+          } as any,
           timer_owner: 'client'
         };
 
