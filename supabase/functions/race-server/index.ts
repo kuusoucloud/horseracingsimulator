@@ -893,6 +893,13 @@ Deno.serve(async (req) => {
 
     if (fetchError || !currentRaceState) {
       console.log('❌ No race state found - FORCE creating with horses NOW...')
+      
+      // Start the race loop first to ensure server is running
+      if (!isRaceLoopRunning) {
+        console.log('🔄 Starting race loop...')
+        startRaceLoop()
+      }
+      
       const newRace = await startNewRace()
       
       if (newRace && newRace.horses && newRace.horses.length > 0) {
@@ -926,7 +933,7 @@ Deno.serve(async (req) => {
     if (!currentRaceState.horses || currentRaceState.horses.length === 0) {
       console.log('❌ Race state exists but NO HORSES - FORCE adding horses NOW...')
       
-      // Generate horses using the ELO function ONLY - remove fallback that causes errors
+      // Generate horses using the ELO function ONLY
       let horses
       try {
         horses = await generateRandomHorsesWithELO(8)
@@ -980,6 +987,12 @@ Deno.serve(async (req) => {
         },
         status: 200,
       });
+    }
+
+    // Start race loop if not running
+    if (!isRaceLoopRunning) {
+      console.log('🔄 Starting race loop...')
+      startRaceLoop()
     }
 
     console.log('✅ Race state has horses:', currentRaceState.horses.length)
