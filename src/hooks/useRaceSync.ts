@@ -97,6 +97,11 @@ export function useRaceSync() {
     };
 
     const createClientSideRace = async () => {
+      if (!supabase) {
+        console.log('❌ Supabase not available - cannot create client-side race');
+        return;
+      }
+      
       try {
         console.log('🏇 Creating client-side race...');
         
