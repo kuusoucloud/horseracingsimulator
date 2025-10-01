@@ -25,6 +25,20 @@ export default function Home() {
   const [showPhotoFinish, setShowPhotoFinish] = useState(false);
   const [photoFinishResults, setPhotoFinishResults] = useState<RaceResult[] | null>(null);
 
+  // Get data from server - with safe defaults
+  const horses = syncedData?.horses || [];
+  const raceState = syncedData?.race_state || 'pre-race';
+  const preRaceTimer = syncedData?.pre_race_timer || 10;
+  const countdownTimer = syncedData?.countdown_timer || 0;
+  const raceTimer = syncedData?.race_timer || 0;
+  const raceResults = syncedData?.race_results || [];
+  
+  // Server-managed UI states
+  const showPhotoFinishFromServer = syncedData?.show_photo_finish || false;
+  const showResultsFromServer = syncedData?.show_results || false;
+  const photoFinishResultsFromServer = syncedData?.photo_finish_results || [];
+  const serverWeatherConditions = syncedData?.weather_conditions || null;
+
   // Fetch horse ELO data from database and merge with race data
   const [horseEloData, setHorseEloData] = useState<Record<string, any>>({});
   
@@ -73,20 +87,6 @@ export default function Home() {
     setIsClient(true);
   }, []);
 
-  // Get data from server - with safe defaults
-  const horses = syncedData?.horses || [];
-  const raceState = syncedData?.race_state || 'pre-race';
-  const preRaceTimer = syncedData?.pre_race_timer || 10;
-  const countdownTimer = syncedData?.countdown_timer || 0;
-  const raceTimer = syncedData?.race_timer || 0;
-  const raceResults = syncedData?.race_results || [];
-  
-  // Server-managed UI states
-  const showPhotoFinishFromServer = syncedData?.show_photo_finish || false;
-  const showResultsFromServer = syncedData?.show_results || false;
-  const photoFinishResultsFromServer = syncedData?.photo_finish_results || [];
-  const serverWeatherConditions = syncedData?.weather_conditions || null;
-  
   // Debug weather conditions
   useEffect(() => {
     if (serverWeatherConditions) {
