@@ -22,7 +22,7 @@ export default function Home() {
   const [eloRefreshTrigger, setEloRefreshTrigger] = useState(0);
   
   // Betting state (placeholder - not used in server-controlled version)
-  const [selectedBet, setSelectedBet] = useState<{ horseId: string; amount: number } | null>(null);
+  const [selectedBet, setSelectedBet] = useState<Bet | null>(null);
   
   // Photo Finish states
   const [showPhotoFinish, setShowPhotoFinish] = useState(false);
@@ -188,7 +188,12 @@ export default function Home() {
   // Betting handler (placeholder - not used in server-controlled version)
   const handlePlaceBet = (horse: Horse, amount: number) => {
     console.log('🎰 Bet placed:', { horseId: horse.id, horseName: horse.name, amount });
-    setSelectedBet({ horseId: horse.id, amount });
+    setSelectedBet({ 
+      horseId: horse.id, 
+      horseName: horse.name,
+      amount,
+      odds: horse.odds
+    });
   };
 
   // Don't render until client-side hydration is complete
