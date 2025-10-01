@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,8 +40,13 @@ export default function HorseLineup({
   const [betAmount, setBetAmount] = useState<number>(10);
   const [betDialogOpen, setBetDialogOpen] = useState<boolean>(false);
 
-  // Get horse statistics
-  const horseStats = getStoredHorseStats();
+  // Get horse statistics - memoized to prevent unnecessary recalculations
+  const horseStats = useMemo(() => getStoredHorseStats(), []);
+
+  // Memoize sorted horses to prevent constant re-sorting
+  const sortedHorses = useMemo(() => {
+    return [...horses].sort((a, b) => b.elo - a.elo);
+  }, [horses]);
 
   const handleSelectHorse = (horse: Horse) => {
     if (raceInProgress) return;
@@ -56,46 +61,50 @@ export default function HorseLineup({
     }
   };
 
-  // Helper function to get form display
-  const getFormDisplay = (horseName: string) => {
-    const stats = horseStats[horseName];
-    if (!stats || stats.recentForm.length === 0) {
-      return <span className="text-white/40 text-xs">No form</span>;
-    }
+  // Helper function to get form display - memoized
+  const getFormDisplay = useMemo(() => {
+    return (horseName: string) => {
+      const stats = horseStats[horseName];
+      if (!stats || stats.recentForm.length === 0) {
+        return <span className="text-white/40 text-xs">No form</span>;
+      }
 
-    return (
-      <div className="flex items-center gap-0.5">
-        {stats.recentForm.map((placement, index) => (
-          <span
-            key={index}
-            className={`text-xs font-bold px-0.5 py-0 rounded text-center w-3 h-3 flex items-center justify-center ${
-              placement === 1 ? 'bg-yellow-500/30 text-yellow-300' :
-              placement === 2 ? 'bg-gray-400/30 text-gray-300' :
-              placement === 3 ? 'bg-orange-500/30 text-orange-300' :
-              'bg-white/10 text-white/60'
-            }`}
-          >
-            {placement}
-          </span>
-        ))}
-      </div>
-    );
-  };
+      return (
+        <div className="flex items-center gap-0.5">
+          {stats.recentForm.map((placement, index) => (
+            <span
+              key={index}
+              className={`text-xs font-bold px-0.5 py-0 rounded text-center w-3 h-3 flex items-center justify-center ${
+                placement === 1 ? 'bg-yellow-500/30 text-yellow-300' :
+                placement === 2 ? 'bg-gray-400/30 text-gray-300' :
+                placement === 3 ? 'bg-orange-500/30 text-orange-300' :
+                'bg-white/10 text-white/60'
+              }`}
+            >
+              {placement}
+            </span>
+          ))}
+        </div>
+      );
+    };
+  }, [horseStats]);
 
-  // Helper function to get wins display
-  const getWinsDisplay = (horseName: string) => {
-    const stats = horseStats[horseName];
-    if (!stats) {
-      return <span className="text-white/40 text-xs">0 wins</span>;
-    }
+  // Helper function to get wins display - memoized
+  const getWinsDisplay = useMemo(() => {
+    return (horseName: string) => {
+      const stats = horseStats[horseName];
+      if (!stats) {
+        return <span className="text-white/40 text-xs">0 wins</span>;
+      }
 
-    return (
-      <div className="flex items-center gap-1">
-        <Trophy className="w-3 h-3 text-yellow-400" />
-        <span className="text-yellow-300 text-xs font-bold">{stats.wins}</span>
-      </div>
-    );
-  };
+      return (
+        <div className="flex items-center gap-1">
+          <Trophy className="w-3 h-3 text-yellow-400" />
+          <span className="text-yellow-300 text-xs font-bold">{stats.wins}</span>
+        </div>
+      );
+    };
+  }, [horseStats]);
 
   return (
     <div className="w-full h-[600px] relative overflow-hidden">
@@ -112,89 +121,87 @@ export default function HorseLineup({
         <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-xl border border-white/10 shadow-2xl p-4 h-full flex flex-col">
           {/* All 8 horses in a fixed height container - sorted by ELO rating (highest first) */}
           <div className="flex-1 flex flex-col justify-between min-h-0 gap-1">
-            {horses
-              .sort((a, b) => b.elo - a.elo) // Sort by ELO descending (highest rated first)
-              .map((horse, index) => {
-                const rank = getHorseRank(horse.elo);
-                const barrierColor = getBarrierColor(horse.lane || index + 1);
-                return (
-                  <motion.div
-                    key={horse.id}
-                    className={`p-2 rounded-md transition-all duration-300 backdrop-blur-sm flex-1 max-h-[65px] ${
-                      selectedBet?.horseId === horse.id
-                        ? "bg-gradient-to-r from-emerald-500/30 to-blue-500/30 border border-emerald-400/50 shadow-lg shadow-emerald-500/20"
-                        : "bg-white/5 border border-white/10"
-                    }`}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.4, delay: index * 0.05 }}
-                  >
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <div className="flex items-center gap-1">
-                        <div
-                          className="w-2.5 h-2.5 rounded-full border border-white/30 shadow-lg"
-                          style={{
-                            backgroundColor: barrierColor,
-                            boxShadow: `0 0 4px ${barrierColor}40`,
-                          }}
-                        />
-                        <span className="text-white/60 font-bold text-xs">
-                          #{horse.lane}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <h3
-                            className={`font-bold text-xs truncate ${rank.textColor}`}
-                          >
-                            {horse.name}
-                          </h3>
-                          <Badge
-                            className={`text-xs px-1 py-0 font-bold ${rank.bgColor} ${rank.borderColor} ${rank.textColor}`}
-                          >
-                            {rank.name}
-                          </Badge>
-                        </div>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={`font-bold text-xs px-1 py-0 ${
-                          horse.odds <= 2.0
-                            ? "bg-green-500/20 border-green-400/50 text-green-300"
-                            : horse.odds <= 5.0
-                              ? "bg-yellow-500/20 border-yellow-400/50 text-yellow-300"
-                              : horse.odds <= 10.0
-                                ? "bg-orange-500/20 border-orange-400/50 text-orange-300"
-                                : "bg-red-500/20 border-red-400/50 text-red-300"
-                        }`}
-                      >
-                        {horse.odds.toFixed(2)}:1
-                      </Badge>
-                    </div>
-
-                    {/* ELO rating and horse description */}
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-white/70 italic truncate flex-1">
-                        {getHorseDescriptionFromOdds(horse.odds)}
-                      </span>
-                      <span className="text-white/60 font-mono ml-2">
-                        ELO: {Math.round(horse.elo || 0)}
+            {sortedHorses.map((horse, index) => {
+              const rank = getHorseRank(horse.elo);
+              const barrierColor = getBarrierColor(horse.lane || index + 1);
+              return (
+                <motion.div
+                  key={`${horse.id}-${horse.name}`} // Stable key to prevent flickering
+                  className={`p-2 rounded-md transition-all duration-300 backdrop-blur-sm flex-1 max-h-[65px] ${
+                    selectedBet?.horseId === horse.id
+                      ? "bg-gradient-to-r from-emerald-500/30 to-blue-500/30 border border-emerald-400/50 shadow-lg shadow-emerald-500/20"
+                      : "bg-white/5 border border-white/10"
+                  }`}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.05 }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <div className="flex items-center gap-1">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full border border-white/30 shadow-lg"
+                        style={{
+                          backgroundColor: barrierColor,
+                          boxShadow: `0 0 4px ${barrierColor}40`,
+                        }}
+                      />
+                      <span className="text-white/60 font-bold text-xs">
+                        #{horse.lane}
                       </span>
                     </div>
-
-                    {/* Horse Form and Wins */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white/50 text-xs">Form:</span>
-                        {getFormDisplay(horse.name)}
-                      </div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
-                        {getWinsDisplay(horse.name)}
+                        <h3
+                          className={`font-bold text-xs truncate ${rank.textColor}`}
+                        >
+                          {horse.name}
+                        </h3>
+                        <Badge
+                          className={`text-xs px-1 py-0 font-bold ${rank.bgColor} ${rank.borderColor} ${rank.textColor}`}
+                        >
+                          {rank.name}
+                        </Badge>
                       </div>
                     </div>
-                  </motion.div>
-                );
-              })}
+                    <Badge
+                      variant="outline"
+                      className={`font-bold text-xs px-1 py-0 ${
+                        horse.odds <= 2.0
+                          ? "bg-green-500/20 border-green-400/50 text-green-300"
+                          : horse.odds <= 5.0
+                            ? "bg-yellow-500/20 border-yellow-400/50 text-yellow-300"
+                            : horse.odds <= 10.0
+                              ? "bg-orange-500/20 border-orange-400/50 text-orange-300"
+                              : "bg-red-500/20 border-red-400/50 text-red-300"
+                      }`}
+                    >
+                      {horse.odds.toFixed(2)}:1
+                    </Badge>
+                  </div>
+
+                  {/* ELO rating and horse description */}
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-white/70 italic truncate flex-1">
+                      {getHorseDescriptionFromOdds(horse.odds)}
+                    </span>
+                    <span className="text-white/60 font-mono ml-2">
+                      ELO: {Math.round(horse.elo || 0)}
+                    </span>
+                  </div>
+
+                  {/* Horse Form and Wins */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white/50 text-xs">Form:</span>
+                      {getFormDisplay(horse.name)}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {getWinsDisplay(horse.name)}
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
 
           <motion.div

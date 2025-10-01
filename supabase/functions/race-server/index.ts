@@ -509,7 +509,7 @@ async function updateRaceState() {
     }
     let message = 'Timestamp updated'
 
-    // Handle PRE-RACE TIMER (10 seconds countdown)
+    // Handle PRE-RACE TIMER (10 seconds countdown) - FIXED: Don't regenerate horses
     if (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) {
       if (shouldUpdateTimers) {
         const newTimer = Math.max(0, raceState.pre_race_timer - 1)
@@ -523,15 +523,16 @@ async function updateRaceState() {
           }
           message = `Pre-race timer updated to ${newTimer}`
         } else {
-          // Timer reached 0, start countdown phase
+          // Timer reached 0, start countdown phase - KEEP EXISTING HORSES
           updateData = { 
             ...updateData,
             pre_race_timer: 0,
             race_state: 'countdown',
             countdown_timer: 10,
             timer_owner: 'server'
+            // DON'T regenerate horses here - keep existing ones
           }
-          message = 'Starting countdown phase'
+          message = 'Starting countdown phase with existing horses'
         }
       }
     }
@@ -713,7 +714,7 @@ async function updateRaceState() {
         }
       }
     }
-    // Handle FINISHED state with proper timing
+    // Handle FINISHED state with proper timing - INCREASED DELAY BEFORE NEW RACE
     else if (raceState.race_state === 'finished') {
       if (shouldUpdateTimers) {
         const currentFinishTimer = raceState.finish_timer || 0
@@ -739,17 +740,17 @@ async function updateRaceState() {
           }
           message = 'Photo finish complete - showing results'
         }
-        // Handle results display (10 seconds total)
-        else if (raceState.show_results && newFinishTimer <= 10) {
+        // Handle results display (15 seconds total - INCREASED from 10)
+        else if (raceState.show_results && newFinishTimer <= 15) {
           updateData = {
             ...updateData,
             finish_timer: newFinishTimer
           }
-          message = `Results display: ${newFinishTimer}/10 seconds`
+          message = `Results display: ${newFinishTimer}/15 seconds`
         }
-        // Start new race after 10 seconds
-        else if (newFinishTimer > 10) {
-          console.log('🔄 Starting new race after 10 seconds...')
+        // Start new race after 15 seconds - INCREASED DELAY
+        else if (newFinishTimer > 15) {
+          console.log('🔄 Starting new race after 15 seconds...')
           await supabaseClient
             .from('race_state')
             .delete()

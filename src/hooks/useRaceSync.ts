@@ -90,7 +90,7 @@ export function useRaceSync() {
     }
   }, []);
 
-  // Load initial race state and start ultra-fast polling for real-time sync
+  // Load initial race state and start polling for real-time sync
   useEffect(() => {
     const loadRaceState = async () => {
       if (!supabase) return;
@@ -120,9 +120,9 @@ export function useRaceSync() {
 
     loadRaceState();
 
-    // Ultra-fast polling every 50ms for buttery smooth real-time updates
-    console.log('🔄 Starting ultra-fast polling every 50ms for buttery smooth race track updates...');
-    pollingInterval.current = setInterval(pollRaceState, 50);
+    // Balanced polling: 150ms for smooth race track updates without overwhelming the server
+    console.log('🔄 Starting balanced polling every 150ms for smooth race updates...');
+    pollingInterval.current = setInterval(pollRaceState, 150);
 
     return () => {
       if (pollingInterval.current) {
