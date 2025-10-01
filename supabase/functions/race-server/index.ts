@@ -36,15 +36,20 @@ function generateWeatherConditions() {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests FIRST
+  console.log(`📡 Received ${req.method} request to race-server function`)
+
+  // Handle CORS preflight requests FIRST - before any other logic
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
+    console.log('🔄 Handling CORS preflight request')
+    return new Response(null, { 
       status: 200,
-      headers: corsHeaders
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      }
     })
   }
-
-  console.log(`📡 Received ${req.method} request to race-server function`)
 
   try {
     const supabaseClient = createClient(
