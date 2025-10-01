@@ -81,29 +81,44 @@ export default function RaceController({
           
           // Update race state with real 3D detector results
           if (supabase) {
+            // Get the current race ID from the database
             supabase
               .from('race_state')
-              .update({
-                race_state: 'finished',
-                show_photo_finish: true,
-                show_results: true,
-                race_results: top3.map(r => ({
-                  id: r.horseId,
-                  name: r.horseName,
-                  placement: r.placement,
-                  finishTime: r.finishTime
-                })),
-                photo_finish_results: top3.map(r => ({
-                  id: r.horseId,
-                  name: r.horseName,
-                  placement: r.placement,
-                  finishTime: r.finishTime
-                }))
+              .select('id')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single()
+              .then(({ data: currentRace, error: fetchError }) => {
+                if (fetchError || !currentRace) {
+                  console.error('❌ Error fetching current race:', fetchError);
+                  return;
+                }
+
+                // Update the current race with 3D detector results
+                return supabase
+                  .from('race_state')
+                  .update({
+                    race_state: 'finished',
+                    show_photo_finish: true,
+                    show_results: true,
+                    race_results: top3.map(r => ({
+                      id: r.horseId,
+                      name: r.horseName,
+                      placement: r.placement,
+                      finishTime: r.finishTime
+                    })),
+                    photo_finish_results: top3.map(r => ({
+                      id: r.horseId,
+                      name: r.horseName,
+                      placement: r.placement,
+                      finishTime: r.finishTime
+                    }))
+                  })
+                  .eq('id', currentRace.id);
               })
-              .eq('id', syncedData?.id)
-              .then(({ error }) => {
-                if (error) {
-                  console.error('❌ Error updating race with 3D results:', error);
+              .then((result) => {
+                if (result?.error) {
+                  console.error('❌ Error updating race with 3D results:', result.error);
                 } else {
                   console.log('✅ Race updated with real 3D finish line results!');
                 }
@@ -118,7 +133,7 @@ export default function RaceController({
     };
     
     console.log('✅ 3D finish line detector initialized');
-  }, [syncedData?.id]);
+  }, []);
 
   // Reset detector when new race starts
   useEffect(() => {
