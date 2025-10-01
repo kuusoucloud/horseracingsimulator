@@ -1,26 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateRandomHorses, calculateOddsFromELO } from './horses.ts'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 Deno.serve(async (req) => {
   console.log(`📡 Race server called with ${req.method}`)
 
-  // Handle CORS preflight - MUST be first and simplest possible
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-      },
-    })
-  }
-
-  // Standard headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Content-Type': 'application/json',
+    return new Response('ok', { 
+      headers: corsHeaders,
+      status: 200 
+    });
   }
 
   try {
@@ -88,12 +82,17 @@ Deno.serve(async (req) => {
         .single()
 
       if (error) {
+        console.error('❌ Failed to create race:', error)
         return new Response(
           JSON.stringify({ error: 'Failed to create race', details: error.message }),
-          { status: 500, headers }
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
         )
       }
 
+      console.log('✅ New race created successfully')
       return new Response(
         JSON.stringify({ 
           message: 'New race created successfully',
@@ -101,16 +100,23 @@ Deno.serve(async (req) => {
           horses: newHorses.length,
           state: 'pre-race'
         }),
-        { status: 200, headers }
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
       )
     } else {
+      console.log('🏇 Race already exists')
       return new Response(
         JSON.stringify({ 
           message: 'Race already exists',
           race_id: existingRace.id,
           state: existingRace.race_state
         }),
-        { status: 200, headers }
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
       )
     }
 
@@ -118,7 +124,10 @@ Deno.serve(async (req) => {
     console.error('❌ Race server error:', error)
     return new Response(
       JSON.stringify({ error: 'Server error', details: error.message }),
-      { status: 500, headers }
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
     )
   }
 })
