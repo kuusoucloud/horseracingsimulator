@@ -47,6 +47,27 @@ export type Database = {
         }
         Relationships: []
       }
+      race_control: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_tick: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_tick?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_tick?: string | null
+        }
+        Relationships: []
+      }
       race_state: {
         Row: {
           countdown_timer: number | null
@@ -115,7 +136,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      advance_race_state: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      trigger_race_tick: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

@@ -26,11 +26,10 @@ export function useRaceSync() {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  const serverStarted = useRef(false);
   const timerInterval = useRef<NodeJS.Timeout | null>(null);
   const subscription = useRef<any>(null);
 
-  // Initialize server and start watching
+  // Initialize and load current race state
   useEffect(() => {
     if (!supabase) {
       console.log('🏇 No Supabase connection - running offline');
@@ -41,48 +40,40 @@ export function useRaceSync() {
 
     const initializeRaceSystem = async () => {
       try {
-        // Start the race server once
-        if (!serverStarted.current && supabase) {
-          console.log('🚀 Starting race server...');
-          serverStarted.current = true;
-          
-          await supabase.functions.invoke('supabase-functions-race-server', {
-            body: {},
-          });
-        }
+        console.log('🏇 Loading current race state...');
 
         // Load current race state
-        if (supabase) {
-          const { data: currentRace, error } = await supabase
-            .from('race_state')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+        const { data: currentRace, error } = await supabase
+          .from('race_state')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-          if (error) {
-            console.error('❌ Error loading race:', error);
-          } else if (currentRace) {
-            console.log('🏇 Loaded race:', currentRace.race_state);
-            // Type-safe conversion from database row to RaceData
-            const raceDataFromDB: RaceData = {
-              id: currentRace.id,
-              race_state: currentRace.race_state as RaceState,
-              horses: (currentRace.horses as any) || [],
-              race_progress: (currentRace.race_progress as any) || {},
-              pre_race_timer: currentRace.pre_race_timer || 0,
-              countdown_timer: currentRace.countdown_timer || undefined,
-              race_timer: currentRace.race_timer || undefined,
-              race_start_time: currentRace.race_start_time || undefined,
-              race_results: (currentRace.race_results as any) || [],
-              show_photo_finish: currentRace.show_photo_finish || false,
-              show_results: currentRace.show_results || false,
-              photo_finish_results: (currentRace.photo_finish_results as any) || [],
-              weather_conditions: (currentRace.weather_conditions as any) || undefined,
-              timer_owner: currentRace.timer_owner || undefined,
-            };
-            setRaceData(raceDataFromDB);
-          }
+        if (error) {
+          console.error('❌ Error loading race:', error);
+        } else if (currentRace) {
+          console.log('🏇 Loaded race:', currentRace.race_state);
+          // Type-safe conversion from database row to RaceData
+          const raceDataFromDB: RaceData = {
+            id: currentRace.id,
+            race_state: currentRace.race_state as RaceState,
+            horses: (currentRace.horses as any) || [],
+            race_progress: (currentRace.race_progress as any) || {},
+            pre_race_timer: currentRace.pre_race_timer || 0,
+            countdown_timer: currentRace.countdown_timer || undefined,
+            race_timer: currentRace.race_timer || undefined,
+            race_start_time: currentRace.race_start_time || undefined,
+            race_results: (currentRace.race_results as any) || [],
+            show_photo_finish: currentRace.show_photo_finish || false,
+            show_results: currentRace.show_results || false,
+            photo_finish_results: (currentRace.photo_finish_results as any) || [],
+            weather_conditions: (currentRace.weather_conditions as any) || undefined,
+            timer_owner: currentRace.timer_owner || undefined,
+          };
+          setRaceData(raceDataFromDB);
+        } else {
+          console.log('🏇 No race found, database will create one on first tick');
         }
 
         setIsConnected(true);
@@ -149,18 +140,19 @@ export function useRaceSync() {
     };
   }, [isConnected]);
 
-  // Timer that drives the race server
+  // Timer that calls database function directly (no edge functions!)
   useEffect(() => {
     if (!supabase || !isConnected) return;
 
-    console.log('⏰ Starting race timer...');
+    console.log('⏰ Starting database-driven race timer...');
     
     timerInterval.current = setInterval(async () => {
       try {
-        if (supabase) {
-          await supabase.functions.invoke('supabase-functions-race-timer', {
-            body: {},
-          });
+        // Call database function directly - no edge function needed!
+        const { error } = await supabase.rpc('trigger_race_tick');
+        
+        if (error) {
+          console.error('❌ Database tick error:', error);
         }
       } catch (error) {
         console.error('❌ Timer error:', error);
@@ -245,6 +237,6 @@ export function useRaceSync() {
     // Legacy compatibility (for existing components)
     syncedData: raceData,
     updateRaceState: () => console.log('🚫 Client is read-only'),
-    initializeNewRace: () => console.log('🚫 Server handles race creation'),
+    initializeNewRace: () => console.log('🚫 Database handles race creation'),
   };
 }
