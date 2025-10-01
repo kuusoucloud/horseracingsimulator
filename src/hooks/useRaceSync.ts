@@ -120,9 +120,9 @@ export function useRaceSync() {
 
     loadRaceState();
 
-    // Ultra-fast polling every 100ms for super smooth real-time updates
-    console.log('🔄 Starting ultra-fast polling every 100ms for real-time race track updates...');
-    pollingInterval.current = setInterval(pollRaceState, 100);
+    // Ultra-fast polling every 50ms for buttery smooth real-time updates
+    console.log('🔄 Starting ultra-fast polling every 50ms for buttery smooth race track updates...');
+    pollingInterval.current = setInterval(pollRaceState, 50);
 
     return () => {
       if (pollingInterval.current) {
