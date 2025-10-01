@@ -200,8 +200,8 @@ export default function Home() {
       {/* Photo Finish Component */}
       {showPhotoFinish && photoFinishResults && (
         <PhotoFinish
-          finishingHorses={photoFinishResults.slice(0, 3)}
-          onPhotoFinishComplete={handlePhotoFinishComplete}
+          results={photoFinishResults.slice(0, 3)}
+          onClose={handlePhotoFinishComplete}
           isVisible={showPhotoFinish}
         />
       )}
