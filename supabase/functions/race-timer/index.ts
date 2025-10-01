@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
 Deno.serve(async (req) => {
@@ -17,10 +18,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    // Validate environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Missing Supabase environment variables')
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    const supabaseClient = createClient(supabaseUrl, supabaseKey)
 
     // Get current race state
     const { data: raceState, error: fetchError } = await supabaseClient
@@ -32,7 +45,7 @@ Deno.serve(async (req) => {
     if (fetchError) {
       console.error('❌ Error fetching race state:', fetchError)
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch race state' }),
+        JSON.stringify({ error: 'Failed to fetch race state', details: fetchError.message }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -42,7 +55,7 @@ Deno.serve(async (req) => {
 
     if (!raceState) {
       return new Response(
-        JSON.stringify({ message: 'No race state found' }),
+        JSON.stringify({ success: true, message: 'No race state found' }),
         { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -182,7 +195,7 @@ Deno.serve(async (req) => {
       if (updateError) {
         console.error('❌ Error updating race state:', updateError)
         return new Response(
-          JSON.stringify({ error: 'Failed to update race state' }),
+          JSON.stringify({ error: 'Failed to update race state', details: updateError.message }),
           { 
             status: 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -192,7 +205,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ message, updates: Object.keys(updates) }),
+      JSON.stringify({ 
+        success: true,
+        message, 
+        updates: Object.keys(updates),
+        race_state: raceState.race_state 
+      }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -202,7 +220,11 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('❌ Timer error:', error)
     return new Response(
-      JSON.stringify({ error: 'Timer function error', details: error.message }),
+      JSON.stringify({ 
+        error: 'Timer function error', 
+        details: error.message,
+        stack: error.stack 
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
