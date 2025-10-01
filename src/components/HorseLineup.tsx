@@ -43,9 +43,18 @@ export default function HorseLineup({
   // Get horse statistics - memoized to prevent unnecessary recalculations
   const horseStats = useMemo(() => getStoredHorseStats(), []);
 
-  // Memoize sorted horses to prevent constant re-sorting
+  // Memoize sorted horses to prevent constant re-sorting - use stable sort
   const sortedHorses = useMemo(() => {
-    return [...horses].sort((a, b) => b.elo - a.elo);
+    if (!horses || horses.length === 0) return [];
+    
+    // Create a stable sort that maintains order for horses with same ELO
+    return [...horses].sort((a, b) => {
+      const eloDiff = b.elo - a.elo;
+      if (eloDiff !== 0) return eloDiff;
+      
+      // If ELO is the same, sort by ID for stability
+      return a.id.localeCompare(b.id);
+    });
   }, [horses]);
 
   const handleSelectHorse = (horse: Horse) => {

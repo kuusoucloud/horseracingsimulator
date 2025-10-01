@@ -509,7 +509,7 @@ async function updateRaceState() {
     }
     let message = 'Timestamp updated'
 
-    // Handle PRE-RACE TIMER (10 seconds countdown) - FIXED: Don't regenerate horses
+    // Handle PRE-RACE TIMER (10 seconds countdown) - FIXED: Don't regenerate horses during pre-race
     if (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) {
       if (shouldUpdateTimers) {
         const newTimer = Math.max(0, raceState.pre_race_timer - 1)
@@ -520,6 +520,7 @@ async function updateRaceState() {
             ...updateData,
             pre_race_timer: newTimer,
             timer_owner: 'server'
+            // CRITICAL: Don't touch horses array during pre-race countdown
           }
           message = `Pre-race timer updated to ${newTimer}`
         } else {
@@ -530,7 +531,7 @@ async function updateRaceState() {
             race_state: 'countdown',
             countdown_timer: 10,
             timer_owner: 'server'
-            // DON'T regenerate horses here - keep existing ones
+            // CRITICAL: Don't regenerate horses here - keep existing ones
           }
           message = 'Starting countdown phase with existing horses'
         }

@@ -120,9 +120,9 @@ export function useRaceSync() {
 
     loadRaceState();
 
-    // Slower polling: 500ms for stable updates without overwhelming the server or causing flickering
-    console.log('🔄 Starting stable polling every 500ms for smooth updates without flickering...');
-    pollingInterval.current = setInterval(pollRaceState, 500);
+    // Ultra-fast polling: 100ms for buttery smooth 3D race track updates
+    console.log('🔄 Starting ultra-fast polling every 100ms for smooth 3D race updates...');
+    pollingInterval.current = setInterval(pollRaceState, 100);
 
     return () => {
       if (pollingInterval.current) {
