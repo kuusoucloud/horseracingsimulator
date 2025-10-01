@@ -120,9 +120,9 @@ export function useRaceSync() {
 
     loadRaceState();
 
-    // Fast polling every 500ms for real-time timer sync
-    console.log('🔄 Starting fast polling every 500ms for timer sync...');
-    pollingInterval.current = setInterval(pollRaceState, 500);
+    // Fast polling every 250ms to match server update frequency
+    console.log('🔄 Starting fast polling every 250ms for smooth timer sync...');
+    pollingInterval.current = setInterval(pollRaceState, 250);
 
     return () => {
       if (pollingInterval.current) {
