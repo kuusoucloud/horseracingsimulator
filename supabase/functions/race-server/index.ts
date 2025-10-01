@@ -843,7 +843,12 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case 'start':
-        startRaceLoop()
+        // Only start if not already running, and initialize clean state
+        if (!isRaceLoopRunning) {
+          await initializeCleanRaceState()
+        } else {
+          console.log('⚠️ Race server already running')
+        }
         return new Response(
           JSON.stringify({ message: 'Race server started', running: isRaceLoopRunning }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -905,9 +910,9 @@ Deno.serve(async (req) => {
 })
 
 // Auto-start the race loop when the function loads
-console.log('🏇 Race server function loaded, initializing clean race state...')
+console.log('🏇 Race server function loaded, ready to handle requests...')
 
-// Force clean initialization on server startup
+// Keep the initialization function for manual use
 async function initializeCleanRaceState() {
   try {
     console.log('🧹 Cleaning up any existing race state...')
@@ -933,5 +938,6 @@ async function initializeCleanRaceState() {
   }
 }
 
-// Initialize clean state on startup
-initializeCleanRaceState()
+// Only initialize when explicitly requested, not on function load
+// The server will only start when explicitly requested by a client
+// This prevents constant race regeneration on every function deployment
