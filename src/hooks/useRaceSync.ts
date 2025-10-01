@@ -76,10 +76,11 @@ export function useRaceSync() {
       const { data, error } = await supabase
         .from('race_state')
         .select('*')
+        .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to handle empty results
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error polling race state:', error);
         return;
       }
@@ -104,6 +105,8 @@ export function useRaceSync() {
         };
         
         setSyncedData(finalRaceData);
+      } else {
+        console.log('🏇 No race state found in database');
       }
     } catch (error) {
       console.error('Error in pollRaceState:', error);
@@ -119,10 +122,11 @@ export function useRaceSync() {
         const { data, error } = await supabase
           .from('race_state')
           .select('*')
+          .order('created_at', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle(); // Use maybeSingle instead of single
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
           console.error('Error loading race state:', error);
           return;
         }
