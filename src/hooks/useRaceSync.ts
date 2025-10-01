@@ -27,8 +27,10 @@ type SyncedRaceData = Omit<RaceStateRow, 'id' | 'created_at' | 'updated_at'>;
 export function useRaceSync() {
   const [syncedData, setSyncedData] = useState<SyncedRaceData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [clientHorses, setClientHorses] = useState<Horse[]>([]); // Client-side horse cache
   const hasStartedServer = useRef(false);
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+  const lastRaceId = useRef<string | null>(null);
 
   // Set connection status based on Supabase availability
   useEffect(() => {
@@ -66,7 +68,7 @@ export function useRaceSync() {
     startRaceServer();
   }, []);
 
-  // Polling function to constantly fetch latest race state
+  // Enhanced polling function with client-side horse caching
   const pollRaceState = useCallback(async () => {
     if (!supabase) return;
 
@@ -83,12 +85,30 @@ export function useRaceSync() {
       }
 
       if (data) {
-        setSyncedData(data as SyncedRaceData);
+        const raceData = data as SyncedRaceData;
+        
+        // Check if this is a new race (different horses or new race cycle)
+        const currentRaceId = raceData.horses?.map(h => h.id).join('-') || '';
+        const isNewRace = currentRaceId !== lastRaceId.current;
+        
+        if (isNewRace && raceData.horses && raceData.horses.length > 0) {
+          console.log('🏇 New race detected - updating client horse cache');
+          setClientHorses([...raceData.horses]); // Cache horses on client
+          lastRaceId.current = currentRaceId;
+        }
+        
+        // Use cached horses if server horses are missing or empty
+        const finalRaceData = {
+          ...raceData,
+          horses: raceData.horses && raceData.horses.length > 0 ? raceData.horses : clientHorses
+        };
+        
+        setSyncedData(finalRaceData);
       }
     } catch (error) {
       console.error('Error in pollRaceState:', error);
     }
-  }, []);
+  }, [clientHorses]);
 
   // Load initial race state and start polling for real-time sync
   useEffect(() => {
@@ -109,7 +129,15 @@ export function useRaceSync() {
 
         if (data) {
           console.log('🏇 Loaded existing race state:', data);
-          setSyncedData(data as SyncedRaceData);
+          const raceData = data as SyncedRaceData;
+          
+          // Initialize client horse cache
+          if (raceData.horses && raceData.horses.length > 0) {
+            setClientHorses([...raceData.horses]);
+            lastRaceId.current = raceData.horses.map(h => h.id).join('-');
+          }
+          
+          setSyncedData(raceData);
         } else {
           console.log('🏇 No existing race state found - server will create one');
         }
@@ -120,9 +148,9 @@ export function useRaceSync() {
 
     loadRaceState();
 
-    // Optimized polling: 200ms for smooth race updates without overwhelming UI
-    console.log('🔄 Starting optimized polling every 200ms for smooth race updates...');
-    pollingInterval.current = setInterval(pollRaceState, 200);
+    // Slower polling for UI components: 300ms for smooth updates without overwhelming
+    console.log('🔄 Starting balanced polling every 300ms for smooth updates...');
+    pollingInterval.current = setInterval(pollRaceState, 300);
 
     return () => {
       if (pollingInterval.current) {
@@ -155,7 +183,25 @@ export function useRaceSync() {
             (payload) => {
               console.log('📡 Real-time update received:', payload);
               if (payload.new && typeof payload.new === 'object') {
-                setSyncedData(payload.new as SyncedRaceData);
+                const raceData = payload.new as SyncedRaceData;
+                
+                // Update client horse cache if new horses detected
+                if (raceData.horses && raceData.horses.length > 0) {
+                  const currentRaceId = raceData.horses.map(h => h.id).join('-');
+                  if (currentRaceId !== lastRaceId.current) {
+                    console.log('🏇 Real-time: New race detected - updating client horse cache');
+                    setClientHorses([...raceData.horses]);
+                    lastRaceId.current = currentRaceId;
+                  }
+                }
+                
+                // Use cached horses if server horses are missing
+                const finalRaceData = {
+                  ...raceData,
+                  horses: raceData.horses && raceData.horses.length > 0 ? raceData.horses : clientHorses
+                };
+                
+                setSyncedData(finalRaceData);
               }
             }
           )
@@ -178,7 +224,7 @@ export function useRaceSync() {
         subscription.unsubscribe();
       }
     };
-  }, []);
+  }, [clientHorses]);
 
   // These functions are now no-ops since the server handles everything
   const updateRaceState = useCallback(async (updates: Partial<SyncedRaceData>) => {
