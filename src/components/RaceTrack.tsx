@@ -235,7 +235,7 @@ function RainEffect({ isRaining }: { isRaining: boolean }) {
   );
 }
 
-// Camera that follows the leading horse
+// Camera that follows the leading horse with client-side smoothing
 function FollowCamera({
   progress,
   isRacing,
@@ -245,8 +245,12 @@ function FollowCamera({
   isRacing: boolean;
   raceState: string;
 }) {
-  // Simple camera position state - no smoothing layers
-  const [cameraX, setCameraX] = useState(START_X);
+  // Client-side smooth camera position with interpolation
+  const [smoothCameraX, setSmoothCameraX] = useState(START_X);
+  const [targetCameraX, setTargetCameraX] = useState(START_X);
+  const lastServerUpdate = useRef<number>(0);
+  const interpolationStartTime = useRef<number>(0);
+  const interpolationStartX = useRef<number>(START_X);
 
   // Find the actual leading horse by X position
   const getLeadingHorseX = () => {
@@ -273,37 +277,60 @@ function FollowCamera({
     return maxX;
   };
 
-  // Direct camera control with minimal smoothing
-  useFrame(({ camera }) => {
-    if (!camera) return;
-
-    let targetX;
-
+  // Update target position when server data changes
+  useEffect(() => {
+    const now = Date.now();
+    
+    let newTargetX;
     if (
       raceState === "countdown" ||
       raceState === "ready" ||
       raceState === "waiting" ||
       raceState === "pre-race"
     ) {
-      targetX = START_X;
+      newTargetX = START_X;
     } else if (isRacing) {
       const leadingHorseX = getLeadingHorseX();
       // Stop camera movement at finish line, even if horses go beyond
-      targetX = Math.min(leadingHorseX, FINISH_LINE_X);
+      newTargetX = Math.min(leadingHorseX, FINISH_LINE_X);
     } else if (raceState === "finished") {
-      targetX = FINISH_LINE_X - 18; // Position slightly before finish line for results view
+      newTargetX = FINISH_LINE_X - 18; // Position slightly before finish line for results view
     } else {
-      targetX = 0;
+      newTargetX = 0;
     }
 
-    // Ultra-smooth interpolation for cinematic movement
-    const lerpFactor = 0.08; // Reduced from 0.15 for ultra-smooth movement
-    const distance = targetX - cameraX;
-    const easedDistance = distance * lerpFactor;
-    const newX = cameraX + easedDistance;
-    setCameraX(newX);
+    // Only update if target has changed significantly (reduces jitter)
+    if (Math.abs(newTargetX - targetCameraX) > 0.5) {
+      // Start new interpolation
+      interpolationStartTime.current = now;
+      interpolationStartX.current = smoothCameraX;
+      setTargetCameraX(newTargetX);
+      lastServerUpdate.current = now;
+    }
+  }, [progress, isRacing, raceState, targetCameraX, smoothCameraX]);
 
-    // Set camera position directly - moved closer to track
+  // Client-side smooth interpolation
+  useFrame(({ camera }) => {
+    if (!camera) return;
+
+    const now = Date.now();
+    const timeSinceUpdate = now - lastServerUpdate.current;
+    const interpolationTime = now - interpolationStartTime.current;
+    
+    // Ultra-smooth interpolation over 500ms
+    const interpolationDuration = 500; // ms
+    const progress = Math.min(interpolationTime / interpolationDuration, 1);
+    
+    // Use easing function for even smoother movement
+    const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+    
+    // Calculate smooth position
+    const distance = targetCameraX - interpolationStartX.current;
+    const newX = interpolationStartX.current + (distance * easeOutQuart);
+    
+    setSmoothCameraX(newX);
+
+    // Set camera position with smooth interpolated value
     camera.position.set(newX, 8, 16);
     camera.lookAt(newX, 1, 0);
   });
