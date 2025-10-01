@@ -64,7 +64,24 @@ export function useRaceSync() {
             console.error('❌ Error loading race:', error);
           } else if (currentRace) {
             console.log('🏇 Loaded race:', currentRace.race_state);
-            setRaceData(currentRace);
+            // Type-safe conversion from database row to RaceData
+            const raceDataFromDB: RaceData = {
+              id: currentRace.id,
+              race_state: currentRace.race_state as RaceState,
+              horses: (currentRace.horses as any) || [],
+              race_progress: (currentRace.race_progress as any) || {},
+              pre_race_timer: currentRace.pre_race_timer || 0,
+              countdown_timer: currentRace.countdown_timer || undefined,
+              race_timer: currentRace.race_timer || undefined,
+              race_start_time: currentRace.race_start_time || undefined,
+              race_results: (currentRace.race_results as any) || [],
+              show_photo_finish: currentRace.show_photo_finish || false,
+              show_results: currentRace.show_results || false,
+              photo_finish_results: (currentRace.photo_finish_results as any) || [],
+              weather_conditions: (currentRace.weather_conditions as any) || undefined,
+              timer_owner: currentRace.timer_owner || undefined,
+            };
+            setRaceData(raceDataFromDB);
           }
         }
 
@@ -99,7 +116,25 @@ export function useRaceSync() {
         (payload) => {
           console.log('📡 Race update received:', payload.eventType);
           if (payload.new) {
-            setRaceData(payload.new as RaceData);
+            // Type-safe conversion for real-time updates
+            const dbRow = payload.new as any;
+            const raceDataFromDB: RaceData = {
+              id: dbRow.id,
+              race_state: dbRow.race_state as RaceState,
+              horses: dbRow.horses || [],
+              race_progress: dbRow.race_progress || {},
+              pre_race_timer: dbRow.pre_race_timer || 0,
+              countdown_timer: dbRow.countdown_timer || undefined,
+              race_timer: dbRow.race_timer || undefined,
+              race_start_time: dbRow.race_start_time || undefined,
+              race_results: dbRow.race_results || [],
+              show_photo_finish: dbRow.show_photo_finish || false,
+              show_results: dbRow.show_results || false,
+              photo_finish_results: dbRow.photo_finish_results || [],
+              weather_conditions: dbRow.weather_conditions || undefined,
+              timer_owner: dbRow.timer_owner || undefined,
+            };
+            setRaceData(raceDataFromDB);
           }
         }
       )
