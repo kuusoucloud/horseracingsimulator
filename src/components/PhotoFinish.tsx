@@ -4,9 +4,10 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Zap, Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface PhotoFinishProps {
-  finishingHorses: Array<{
+  results?: Array<{
     id: string;
     name: string;
     placement: number;
@@ -19,20 +20,27 @@ interface PhotoFinishProps {
       odds: number;
     };
   }>;
-  onPhotoFinishComplete: (finalResults: any[]) => void;
-  isVisible: boolean;
+  isVisible?: boolean;
+  onClose?: () => void;
 }
 
-export default function PhotoFinish({
-  finishingHorses,
-  onPhotoFinishComplete,
-  isVisible,
+export default function PhotoFinish({ 
+  results = [], 
+  isVisible = false, 
+  onClose = () => {} 
 }: PhotoFinishProps) {
+  console.log('📸 PhotoFinish component rendered with results:', results);
+  
   const [currentStep, setCurrentStep] = useState<
     "flash" | "capturing" | "analyzing" | "slowmotion" | "revealing"
   >("flash");
   const [revealedPositions, setRevealedPositions] = useState<number[]>([]);
   const [showFlash, setShowFlash] = useState(false);
+
+  // Use actual results from 3D detector instead of mock data
+  const actualResults = results.length > 0 ? results : [];
+  
+  console.log('📸 Using actual 3D detector results:', actualResults);
 
   useEffect(() => {
     if (!isVisible) return;
@@ -62,7 +70,7 @@ export default function PhotoFinish({
       setCurrentStep("revealing");
 
       // Reveal positions one by one (3rd, 2nd, 1st)
-      const sortedHorses = [...finishingHorses].sort(
+      const sortedHorses = [...actualResults].sort(
         (a, b) => a.placement - b.placement,
       );
 
@@ -73,376 +81,143 @@ export default function PhotoFinish({
 
       // Complete the photo finish after all positions revealed
       setTimeout(() => {
-        onPhotoFinishComplete(finishingHorses);
+        onClose();
       }, 1500);
     };
 
     sequence();
-  }, [isVisible, finishingHorses, onPhotoFinishComplete]);
-
-  if (!isVisible) return null;
-
-  const getPodiumEmoji = (placement: number) => {
-    switch (placement) {
-      case 1:
-        return "🥇";
-      case 2:
-        return "🥈";
-      case 3:
-        return "🥉";
-      default:
-        return "🏇";
-    }
-  };
-
-  const getPodiumGradient = (placement: number) => {
-    switch (placement) {
-      case 1:
-        return "from-yellow-400 via-yellow-500 to-yellow-600";
-      case 2:
-        return "from-gray-300 via-gray-400 to-gray-500";
-      case 3:
-        return "from-amber-600 via-amber-700 to-amber-800";
-      default:
-        return "from-slate-600 via-slate-700 to-slate-800";
-    }
-  };
+  }, [isVisible, actualResults, onClose]);
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-50"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
-        {/* Camera Flash Effect */}
-        {showFlash && (
-          <motion.div
-            className="fixed inset-0 bg-white z-60"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 1, 0] }}
-            transition={{ duration: 0.2 }}
-          />
-        )}
+    <Dialog open={isVisible} onOpenChange={() => {}} modal={false}>
+      <DialogContent className="max-w-6xl max-h-[90vh] bg-gray-900/95 border-gray-700 overflow-y-auto" hideCloseButton>
+        <DialogHeader>
+          <DialogTitle className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-center mb-2">
+            📸 Photo Finish Analysis
+          </DialogTitle>
+          <DialogDescription className="text-center text-cyan-300/80">
+            3D finish line detection system analyzing race results
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="w-full max-w-4xl mx-4">
-          {/* Photo Finish Header */}
-          <motion.div
-            className="text-center mb-8"
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <div className="flex items-center justify-center gap-4 mb-4">
-              <Camera className="w-12 h-12 text-cyan-400" />
-              <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
-                📸 PHOTO FINISH
-              </h1>
-              <Camera className="w-12 h-12 text-cyan-400" />
+        <div className="space-y-6">
+          {/* 3D Detector Status */}
+          <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 rounded-lg p-4 border border-cyan-500/30">
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-cyan-300 font-semibold">3D FINISH LINE DETECTOR ACTIVE</span>
             </div>
-            <p className="text-xl text-cyan-300/80">
-              Too close to call - reviewing photo evidence
-            </p>
-          </motion.div>
+            <div className="text-center text-sm text-gray-300">
+              High-precision timing system • Millisecond accuracy • Real-time analysis
+            </div>
+          </div>
 
-          {/* Flash Phase */}
-          {currentStep === "flash" && (
-            <motion.div
-              className="text-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <div className="text-6xl mb-4">📸</div>
-              <h2 className="text-3xl font-bold text-white">*FLASH*</h2>
-            </motion.div>
-          )}
-
-          {/* Capturing Phase */}
-          {currentStep === "capturing" && (
-            <motion.div
-              className="text-center"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-            >
-              <div className="relative mb-8">
-                <motion.div
-                  className="w-32 h-32 mx-auto bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full flex items-center justify-center"
-                  animate={{
-                    scale: [1, 1.1, 1],
-                    rotate: [0, 180, 360],
-                  }}
-                  transition={{
-                    duration: 1.5,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
+          {/* Results Display */}
+          {actualResults.length > 0 ? (
+            <div className="space-y-4">
+              <h3 className="text-2xl font-bold text-center text-cyan-300 mb-4">
+                🏆 Official Race Results
+              </h3>
+              
+              {actualResults.slice(0, 3).map((result, index) => (
+                <div
+                  key={result.id || index}
+                  className={`
+                    relative overflow-hidden rounded-lg border-2 p-4
+                    ${index === 0 ? 'border-yellow-400 bg-gradient-to-r from-yellow-900/30 to-yellow-800/30' :
+                      index === 1 ? 'border-gray-400 bg-gradient-to-r from-gray-800/30 to-gray-700/30' :
+                      'border-orange-400 bg-gradient-to-r from-orange-900/30 to-orange-800/30'}
+                  `}
                 >
-                  <Camera className="w-16 h-16 text-white" />
-                </motion.div>
-              </div>
-
-              <h2 className="text-3xl font-bold text-white mb-4">
-                📷 Capturing High-Speed Footage
-              </h2>
-              <p className="text-cyan-300 text-lg">
-                Recording the exact finish line moment...
-              </p>
-            </motion.div>
-          )}
-
-          {/* Analyzing Phase */}
-          {currentStep === "analyzing" && (
-            <motion.div
-              className="text-center"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-            >
-              <div className="mb-8">
-                <motion.div
-                  className="w-32 h-32 mx-auto bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center"
-                  animate={{
-                    rotate: [0, 360],
-                  }}
-                  transition={{
-                    duration: 1,
-                    repeat: Infinity,
-                    ease: "linear",
-                  }}
-                >
-                  <Zap className="w-16 h-16 text-white" />
-                </motion.div>
-              </div>
-
-              <h2 className="text-3xl font-bold text-white mb-4">
-                🔍 Analyzing Photo Evidence
-              </h2>
-              <p className="text-purple-300 text-lg mb-6">
-                Frame-by-frame analysis in progress...
-              </p>
-
-              {/* Progress indicators */}
-              <div className="flex justify-center gap-2">
-                {[...Array(5)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="w-3 h-3 bg-purple-400 rounded-full"
-                    animate={{
-                      scale: [1, 1.5, 1],
-                      opacity: [0.5, 1, 0.5],
-                    }}
-                    transition={{
-                      duration: 0.8,
-                      repeat: Infinity,
-                      delay: i * 0.2,
-                    }}
-                  />
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Slow Motion Replay Phase */}
-          {currentStep === "slowmotion" && (
-            <motion.div
-              className="text-center"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-            >
-              <div className="mb-8">
-                <motion.div
-                  className="w-40 h-24 mx-auto bg-gradient-to-r from-green-500 to-blue-500 rounded-xl flex items-center justify-center border-4 border-white/20"
-                  animate={{
-                    scale: [1, 1.05, 1],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                >
-                  <div className="text-white text-center">
-                    <div className="text-2xl font-bold">🎬</div>
-                    <div className="text-xs">SLOW-MO</div>
-                  </div>
-                </motion.div>
-              </div>
-
-              <h2 className="text-3xl font-bold text-white mb-4">
-                🎬 Slow Motion Replay
-              </h2>
-              <p className="text-green-300 text-lg mb-6">
-                Reviewing the finish line crossing in slow motion...
-              </p>
-
-              {/* Animated horses crossing finish line */}
-              <div className="relative w-full max-w-2xl mx-auto h-20 bg-gradient-to-r from-green-800/30 to-green-600/30 rounded-lg border border-green-400/30 overflow-hidden">
-                <div className="absolute right-4 top-0 bottom-0 w-1 bg-white/80"></div>
-                <div className="absolute right-4 top-0 bottom-0 w-0.5 bg-yellow-400 animate-pulse"></div>
-
-                {finishingHorses
-                  .sort((a, b) => a.placement - b.placement)
-                  .slice(0, 3)
-                  .map((horse, index) => {
-                    // Calculate staggered finish positions based on actual finish times
-                    const baseFinishPosition = 320; // Base finish line position
-                    const timeGap = horse.finishTime - finishingHorses[0].finishTime;
-                    const positionOffset = timeGap * 50; // Convert time gap to visual distance
-                    const finalPosition = baseFinishPosition - positionOffset;
-                    
-                    return (
-                      <motion.div
-                        key={horse.id}
-                        className={`absolute left-0 text-2xl flex items-center gap-1`}
-                        style={{ top: `${8 + index * 18}px` }}
-                        animate={{
-                          x: [0, 280, finalPosition, finalPosition + 5],
-                        }}
-                        transition={{
-                          duration: 4,
-                          ease: "easeOut",
-                          delay: index * 0.05, // Slight stagger based on placement
-                        }}
-                      >
-                        <span>🏇</span>
-                        <span className="text-xs font-bold text-white bg-black/50 px-1 rounded">
-                          {horse.name.split(' ')[0]}
-                        </span>
-                      </motion.div>
-                    );
-                  })}
-              </div>
-
-              <p className="text-green-300/80 text-sm mt-4">
-                Analyzing finish times: {finishingHorses.slice(0, 3).map(h => 
-                  `${h.name.split(' ')[0]} (${h.finishTime.toFixed(3)}s)`
-                ).join(', ')}
-              </p>
-            </motion.div>
-          )}
-
-          {/* Revealing Phase */}
-          {currentStep === "revealing" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center"
-            >
-              <h2 className="text-3xl font-bold text-white mb-8">
-                🏆 Official Photo Finish Results
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
-                {finishingHorses
-                  .sort((a, b) => a.placement - b.placement)
-                  .map((horse, index) => (
-                    <motion.div
-                      key={horse.id}
-                      className={`relative ${
-                        revealedPositions.includes(horse.placement)
-                          ? "opacity-100"
-                          : "opacity-30"
-                      }`}
-                      initial={{ opacity: 0, y: 50, scale: 0.8 }}
-                      animate={{
-                        opacity: revealedPositions.includes(horse.placement)
-                          ? 1
-                          : 0.3,
-                        y: 0,
-                        scale: revealedPositions.includes(horse.placement)
-                          ? 1
-                          : 0.8,
-                      }}
-                      transition={{
-                        duration: 0.8,
-                        type: "spring",
-                        bounce: 0.4,
-                      }}
-                    >
-                      {/* Reveal animation */}
-                      {revealedPositions.includes(horse.placement) && (
-                        <motion.div
-                          className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-transparent rounded-xl"
-                          initial={{ scale: 0 }}
-                          animate={{ scale: [0, 1.2, 1] }}
-                          transition={{ duration: 0.6 }}
-                        />
-                      )}
-
-                      <div
-                        className={`bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 text-center ${
-                          horse.placement === 1
-                            ? "transform scale-110 border-yellow-400/50"
-                            : ""
-                        }`}
-                      >
-                        <div
-                          className={`text-6xl mb-4 ${
-                            revealedPositions.includes(horse.placement) &&
-                            horse.placement === 1
-                              ? "animate-bounce"
-                              : ""
-                          }`}
-                        >
-                          {getPodiumEmoji(horse.placement)}
-                        </div>
-
-                        <div
-                          className={`w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br ${getPodiumGradient(horse.placement)} flex items-center justify-center text-3xl font-bold text-white shadow-lg`}
-                        >
-                          {revealedPositions.includes(horse.placement)
-                            ? horse.placement
-                            : "?"}
-                        </div>
-
-                        <h3 className="font-bold text-white text-xl mb-2">
-                          {horse.name}
-                        </h3>
-
-                        {revealedPositions.includes(horse.placement) && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className="space-y-2"
-                          >
-                            <Badge className="bg-cyan-500/20 border-cyan-400/50 text-cyan-300">
-                              {horse.finishTime?.toFixed(6)}s
-                            </Badge>
-                            <div className="text-emerald-300 text-sm font-semibold">
-                              {horse.odds.toFixed(2)}:1 odds
-                            </div>
-                          </motion.div>
-                        )}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`
+                        text-4xl font-bold
+                        ${index === 0 ? 'text-yellow-400' :
+                          index === 1 ? 'text-gray-400' :
+                          'text-orange-400'}
+                      `}>
+                        #{result.placement || index + 1}
                       </div>
-                    </motion.div>
-                  ))}
+                      <div>
+                        <div className="text-xl font-bold text-white">
+                          {result.name}
+                        </div>
+                        <div className="text-sm text-gray-300">
+                          Horse ID: {result.id}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-mono font-bold text-cyan-300">
+                        {typeof result.finishTime === 'number' 
+                          ? `${result.finishTime.toFixed(3)}s`
+                          : `${parseFloat(result.finishTime || '0').toFixed(3)}s`
+                        }
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        3D Detected
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Position indicator */}
+                  <div className="absolute top-2 right-2">
+                    {index === 0 && <span className="text-2xl">🥇</span>}
+                    {index === 1 && <span className="text-2xl">🥈</span>}
+                    {index === 2 && <span className="text-2xl">🥉</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-6xl mb-4">📸</div>
+              <div className="text-xl text-cyan-300 mb-2">
+                Analyzing Photo Finish...
               </div>
-
-              {/* Show completion message when all positions revealed */}
-              {revealedPositions.length === finishingHorses.length && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1 }}
-                  className="mt-8"
-                >
-                  <h3 className="text-2xl font-bold text-green-400 mb-2">
-                    ✅ Photo Finish Complete!
-                  </h3>
-                  <p className="text-green-300/80">
-                    Official results confirmed by high-speed camera analysis
-                  </p>
-                </motion.div>
-              )}
-            </motion.div>
+              <div className="text-gray-400">
+                3D detection system processing race results
+              </div>
+            </div>
           )}
+
+          {/* Technical Details */}
+          <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-600">
+            <h4 className="text-lg font-semibold text-cyan-300 mb-3">
+              🔬 Technical Analysis
+            </h4>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-400">Detection Method:</span>
+                <span className="text-white ml-2">3D Spatial Analysis</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Timing Precision:</span>
+                <span className="text-white ml-2">±0.001 seconds</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Horses Detected:</span>
+                <span className="text-white ml-2">{actualResults.length}/8</span>
+              </div>
+              <div>
+                <span className="text-gray-400">System Status:</span>
+                <span className="text-green-400 ml-2">✅ Operational</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Close Button */}
+          <div className="flex justify-center pt-4">
+            <button
+              onClick={onClose}
+              className="px-8 py-3 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105"
+            >
+              Continue to Results
+            </button>
+          </div>
         </div>
-      </motion.div>
-    </AnimatePresence>
+      </DialogContent>
+    </Dialog>
   );
 }

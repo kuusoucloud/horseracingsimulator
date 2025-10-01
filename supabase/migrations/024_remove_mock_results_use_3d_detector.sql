@@ -1,0 +1,109 @@
+-- Fix race restart and remove mock results override
+
+CREATE OR REPLACE FUNCTION advance_race_state()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  current_race RECORD;
+  new_timer INTEGER;
+BEGIN
+  -- Get the current race
+  SELECT * INTO current_race FROM race_state ORDER BY created_at DESC LIMIT 1;
+  
+  -- If no race exists, create one
+  IF current_race IS NULL THEN
+    INSERT INTO race_state (
+      race_state,
+      horses,
+      pre_race_timer,
+      countdown_timer,
+      race_timer,
+      race_results,
+      show_photo_finish,
+      show_results,
+      photo_finish_results,
+      weather_conditions,
+      timer_owner
+    ) VALUES (
+      'pre-race',
+      '[
+        {"id": "1", "name": "Thunder Bolt", "speed": 0.8, "stamina": 0.7, "acceleration": 0.9, "elo": 1200, "odds": 3.5, "position": 0, "lane": 1, "finishTime": null, "placement": null},
+        {"id": "2", "name": "Lightning Strike", "speed": 0.7, "stamina": 0.8, "acceleration": 0.6, "elo": 1150, "odds": 4.2, "position": 0, "lane": 2, "finishTime": null, "placement": null},
+        {"id": "3", "name": "Storm Chaser", "speed": 0.9, "stamina": 0.6, "acceleration": 0.7, "elo": 1300, "odds": 2.8, "position": 0, "lane": 3, "finishTime": null, "placement": null},
+        {"id": "4", "name": "Wind Runner", "speed": 0.6, "stamina": 0.9, "acceleration": 0.8, "elo": 1100, "odds": 5.1, "position": 0, "lane": 4, "finishTime": null, "placement": null},
+        {"id": "5", "name": "Fire Dash", "speed": 0.8, "stamina": 0.7, "acceleration": 0.7, "elo": 1250, "odds": 3.2, "position": 0, "lane": 5, "finishTime": null, "placement": null},
+        {"id": "6", "name": "Ice Breaker", "speed": 0.7, "stamina": 0.8, "acceleration": 0.9, "elo": 1180, "odds": 4.0, "position": 0, "lane": 6, "finishTime": null, "placement": null},
+        {"id": "7", "name": "Star Gazer", "speed": 0.9, "stamina": 0.5, "acceleration": 0.8, "elo": 1320, "odds": 2.5, "position": 0, "lane": 7, "finishTime": null, "placement": null},
+        {"id": "8", "name": "Moon Walker", "speed": 0.5, "stamina": 0.9, "acceleration": 0.6, "elo": 1080, "odds": 6.0, "position": 0, "lane": 8, "finishTime": null, "placement": null}
+      ]'::jsonb,
+      10,
+      0,
+      0,
+      '[]'::jsonb,
+      false,
+      false,
+      '[]'::jsonb,
+      '{"timeOfDay": "day", "weather": "clear", "skyColor": "#87ceeb", "ambientIntensity": 0.4, "directionalIntensity": 1.0, "trackColor": "#8B4513", "grassColor": "#32cd32"}'::jsonb,
+      'database'
+    );
+    RETURN;
+  END IF;
+
+  -- Handle pre-race timer
+  IF current_race.race_state = 'pre-race' AND current_race.pre_race_timer > 0 THEN
+    new_timer := GREATEST(0, current_race.pre_race_timer - 1);
+    
+    IF new_timer = 0 THEN
+      UPDATE race_state 
+      SET race_state = 'countdown', countdown_timer = 5, pre_race_timer = 0
+      WHERE id = current_race.id;
+    ELSE
+      UPDATE race_state 
+      SET pre_race_timer = new_timer
+      WHERE id = current_race.id;
+    END IF;
+    
+  -- Handle countdown timer
+  ELSIF current_race.race_state = 'countdown' AND current_race.countdown_timer > 0 THEN
+    new_timer := GREATEST(0, current_race.countdown_timer - 1);
+    
+    IF new_timer = 0 THEN
+      UPDATE race_state 
+      SET race_state = 'racing', race_start_time = NOW(), race_timer = 0, countdown_timer = 0
+      WHERE id = current_race.id;
+    ELSE
+      UPDATE race_state 
+      SET countdown_timer = new_timer
+      WHERE id = current_race.id;
+    END IF;
+    
+  -- Handle racing state - only update positions, let 3D detector handle results
+  ELSIF current_race.race_state = 'racing' THEN
+    new_timer := COALESCE(current_race.race_timer, 0) + 1;
+    
+    -- Just update horse positions during race - no automatic finish
+    UPDATE race_state 
+    SET 
+      race_timer = new_timer,
+      horses = jsonb_build_array(
+        jsonb_build_object('id', '1', 'name', 'Thunder Bolt', 'position', new_timer * 58, 'lane', 1),
+        jsonb_build_object('id', '2', 'name', 'Lightning Strike', 'position', new_timer * 52, 'lane', 2),
+        jsonb_build_object('id', '3', 'name', 'Storm Chaser', 'position', new_timer * 60, 'lane', 3),
+        jsonb_build_object('id', '4', 'name', 'Wind Runner', 'position', new_timer * 48, 'lane', 4),
+        jsonb_build_object('id', '5', 'name', 'Fire Dash', 'position', new_timer * 56, 'lane', 5),
+        jsonb_build_object('id', '6', 'name', 'Ice Breaker', 'position', new_timer * 54, 'lane', 6),
+        jsonb_build_object('id', '7', 'name', 'Star Gazer', 'position', new_timer * 62, 'lane', 7),
+        jsonb_build_object('id', '8', 'name', 'Moon Walker', 'position', new_timer * 46, 'lane', 8)
+      )
+    WHERE id = current_race.id;
+    
+  -- Handle finished state - restart after 15 seconds
+  ELSIF current_race.race_state = 'finished' THEN
+    IF COALESCE(current_race.race_timer, 0) > 15 THEN
+      -- Delete current race to start a new one
+      DELETE FROM race_state WHERE id = current_race.id;
+    END IF;
+  END IF;
+END;
+$$;

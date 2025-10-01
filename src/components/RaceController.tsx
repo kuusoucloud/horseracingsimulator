@@ -28,6 +28,108 @@ export default function RaceController({
   const lastServerCountdown = useRef(countdownTimer);
   const clientInterval = useRef<NodeJS.Timeout | null>(null);
 
+  // 3D Finish Line Detector System
+  const finishLineResults = useRef<Array<{
+    horseId: string;
+    horseName: string;
+    finishTime: number;
+    placement?: number;
+  }>>([]);
+
+  // Initialize finish line detector
+  useEffect(() => {
+    console.log('🏁 Initializing 3D finish line detector...');
+    
+    // Reset finish line detector when race starts
+    if (window.finishLineDetector) {
+      window.finishLineDetector.reset?.();
+    }
+    
+    window.finishLineDetector = {
+      recordFinish: (horseId: string, horseName: string, finishTime: number) => {
+        console.log(`🏁 3D Detector: ${horseName} finished at ${finishTime.toFixed(3)}s`);
+        
+        // Check if this horse already finished (prevent duplicates)
+        const existingFinish = finishLineResults.current.find(r => r.horseId === horseId);
+        if (existingFinish) {
+          console.log(`⚠️ Horse ${horseName} already recorded, ignoring duplicate`);
+          return;
+        }
+        
+        // Record the finish
+        finishLineResults.current.push({
+          horseId,
+          horseName,
+          finishTime,
+        });
+        
+        // Sort by finish time and assign placements
+        finishLineResults.current.sort((a, b) => a.finishTime - b.finishTime);
+        finishLineResults.current.forEach((result, index) => {
+          result.placement = index + 1;
+        });
+        
+        console.log(`🏁 Current 3D finish order:`, finishLineResults.current);
+        
+        // If we have top 3 finishers, trigger photo finish
+        if (finishLineResults.current.length >= 3) {
+          console.log('📸 Top 3 horses finished, triggering photo finish...');
+          
+          // Get top 3 for photo finish
+          const top3 = finishLineResults.current.slice(0, 3);
+          
+          // Update race state with real 3D detector results
+          if (supabase) {
+            supabase
+              .from('race_state')
+              .update({
+                race_state: 'finished',
+                show_photo_finish: true,
+                show_results: true,
+                race_results: top3.map(r => ({
+                  id: r.horseId,
+                  name: r.horseName,
+                  placement: r.placement,
+                  finishTime: r.finishTime
+                })),
+                photo_finish_results: top3.map(r => ({
+                  id: r.horseId,
+                  name: r.horseName,
+                  placement: r.placement,
+                  finishTime: r.finishTime
+                }))
+              })
+              .eq('id', syncedData?.id)
+              .then(({ error }) => {
+                if (error) {
+                  console.error('❌ Error updating race with 3D results:', error);
+                } else {
+                  console.log('✅ Race updated with real 3D finish line results!');
+                }
+              });
+          }
+        }
+      },
+      reset: () => {
+        console.log('🔄 Resetting 3D finish line detector');
+        finishLineResults.current = [];
+      }
+    };
+    
+    console.log('✅ 3D finish line detector initialized');
+  }, [syncedData?.id]);
+
+  // Reset detector when new race starts
+  useEffect(() => {
+    if (raceState === 'pre-race' || raceState === 'countdown') {
+      console.log('🔄 New race starting, resetting 3D detector');
+      finishLineResults.current = [];
+      if (window.finishLineDetector?.reset) {
+        window.finishLineDetector.reset();
+      }
+    }
+  }, [raceState]);
+
   // Sync with server timer when it changes
   useEffect(() => {
     if (preRaceTimer !== lastServerTimer.current) {
