@@ -497,7 +497,7 @@ async function updateRaceState() {
       (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) ||
       (raceState.race_state === 'countdown' && raceState.countdown_timer > 0) ||
       (raceState.race_state === 'racing' && raceState.race_timer < 80) ||
-      (raceState.race_state === 'finished' && raceState.finish_timer < 10)
+      (raceState.race_state === 'finished' && raceState.finish_timer <= 10)
     )
 
     if (!needsUpdate) {
@@ -723,7 +723,7 @@ async function updateRaceState() {
         }
         message = 'Photo finish complete - showing results'
       }
-      // Handle results display (10 seconds)
+      // Handle results display (10 seconds total)
       else if (raceState.show_results && newFinishTimer <= 10) {
         updateData = {
           finish_timer: newFinishTimer
@@ -733,6 +733,12 @@ async function updateRaceState() {
       // Start new race after 10 seconds
       else if (newFinishTimer > 10) {
         console.log('🔄 Starting new race after 10 seconds...')
+        // Force clear all states before starting new race
+        await supabaseClient
+          .from('race_state')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
+        
         await startNewRace()
         return
       }
