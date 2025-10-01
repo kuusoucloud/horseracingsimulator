@@ -142,6 +142,9 @@ export default function HorseLineup({
       const rank = getHorseRank(horse.elo);
       const barrierColor = getBarrierColor(horse.lane || index + 1);
       
+      // Safety check for odds - provide default if undefined
+      const safeOdds = horse.odds || 5.0;
+      
       return (
         <motion.div
           key={`stable-${horse.id}-${horse.name}`} // Ultra-stable key
@@ -184,23 +187,23 @@ export default function HorseLineup({
             <Badge
               variant="outline"
               className={`font-bold text-xs px-1 py-0 ${
-                horse.odds <= 2.0
+                safeOdds <= 2.0
                   ? "bg-green-500/20 border-green-400/50 text-green-300"
-                  : horse.odds <= 5.0
+                  : safeOdds <= 5.0
                     ? "bg-yellow-500/20 border-yellow-400/50 text-yellow-300"
-                    : horse.odds <= 10.0
+                    : safeOdds <= 10.0
                       ? "bg-orange-500/20 border-orange-400/50 text-orange-300"
                       : "bg-red-500/20 border-red-400/50 text-red-300"
               }`}
             >
-              {horse.odds.toFixed(2)}:1
+              {safeOdds.toFixed(2)}:1
             </Badge>
           </div>
 
           {/* ELO rating and horse description */}
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-white/70 italic truncate flex-1">
-              {getHorseDescriptionFromOdds(horse.odds)}
+              {getHorseDescriptionFromOdds(safeOdds)}
             </span>
             <span className="text-white/60 font-mono ml-2">
               ELO: {Math.round(horse.elo || 0)}
