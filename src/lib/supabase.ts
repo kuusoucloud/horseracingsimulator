@@ -1,7 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 
+// Singleton pattern to ensure only one Supabase client instance
+let supabaseInstance: ReturnType<typeof createClient> | null = null
+
 // Create a function to get the Supabase client safely
 export const getSupabaseClient = () => {
+  // Return existing instance if available
+  if (supabaseInstance) {
+    return supabaseInstance
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -10,7 +18,10 @@ export const getSupabaseClient = () => {
     return null
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey)
+  // Create and cache the instance
+  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey)
+  console.log('✅ Supabase client instance created')
+  return supabaseInstance
 }
 
 // Only create the client if we're in the browser and have the required env vars

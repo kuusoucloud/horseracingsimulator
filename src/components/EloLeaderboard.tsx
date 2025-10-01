@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase'; // Use singleton instance
 import { getHorseRank } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +54,11 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
   ];
 
   const refreshLeaderboard = async (showRefreshIndicator = false) => {
+    if (!supabase) {
+      console.warn('Supabase not available - cannot refresh leaderboard');
+      return;
+    }
+
     try {
       if (showRefreshIndicator) {
         setIsRefreshing(true);
@@ -98,6 +103,11 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
 
   // Set up real-time subscription for horse updates
   useEffect(() => {
+    if (!supabase) {
+      console.warn('Supabase not available - cannot set up real-time subscription');
+      return;
+    }
+
     console.log('🔄 Setting up real-time subscription for horses table...');
     
     const subscription = supabase
@@ -122,7 +132,7 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
   }, []);
 
   const handleReset = async () => {
-    if (!isClient || !confirm('Are you sure you want to reset all ELO ratings to 500? This cannot be undone.')) {
+    if (!isClient || !supabase || !confirm('Are you sure you want to reset all ELO ratings to 500? This cannot be undone.')) {
       return;
     }
     
@@ -145,7 +155,7 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
         return;
       }
       
-      console.log('��� All ELO ratings reset to 500');
+      console.log('✅ All ELO ratings reset to 500');
       refreshLeaderboard();
       
     } catch (error) {

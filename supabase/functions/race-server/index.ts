@@ -4,6 +4,7 @@ import { generateRandomHorses, calculateOddsFromELO } from './horses.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
 const supabaseClient = createClient(
@@ -42,9 +43,16 @@ function generateWeatherConditions() {
 }
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests first
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders, status: 200 });
+    console.log('🔄 Handling OPTIONS preflight request')
+    return new Response(null, { 
+      status: 200,
+      headers: corsHeaders
+    })
   }
+
+  console.log(`📡 Received ${req.method} request to race-server function`)
 
   try {
     console.log('🚀 Race server - checking for horses...')
