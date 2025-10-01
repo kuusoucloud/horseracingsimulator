@@ -212,15 +212,26 @@ function getOrdinalSuffix(n: number): string {
 async function startNewRace() {
   console.log('🏇 Starting new race...')
   
-  // Generate new horses with database ELO ratings
+  // CRITICAL: Ensure only ONE race state exists - delete ALL existing states
+  console.log('🧹 Clearing ALL existing race states to prevent duplicates...')
+  const { error: deleteError } = await supabaseClient
+    .from('race_state')
+    .delete()
+    .gte('id', '00000000-0000-0000-0000-000000000000') // Delete everything
+  
+  if (deleteError) {
+    console.error('Error clearing race states:', deleteError)
+  }
+  
+  // Wait a moment to ensure deletion is complete
+  await new Promise(resolve => setTimeout(resolve, 100))
+  
+  // Generate new horses with database ELO ratings - ONCE per race cycle
   const horses = await generateRandomHorsesWithELO(8)
   
   // Generate weather for this race (server-side)
   const weather = generateWeatherConditions()
   console.log('🌤️ Generated weather conditions:', weather)
-  
-  // Delete existing race state to ensure clean start
-  await supabaseClient.from('race_state').delete().neq('id', '00000000-0000-0000-0000-000000000000')
   
   // Create new race state - ALWAYS start at pre-race with stable horses
   const newRaceState = {
@@ -231,14 +242,15 @@ async function startNewRace() {
     finish_timer: 0,
     race_start_time: null,
     timer_owner: 'server',
-    horses: horses, // CRITICAL: Horses are set here and NEVER changed during race cycle
+    horses: horses, // CRITICAL: Horses are LOCKED for entire race cycle
     race_progress: {},
     race_results: [],
     show_photo_finish: false,
     show_results: false,
     photo_finish_results: [],
     weather_conditions: weather,
-    last_update_time: new Date().toISOString() // Initialize timestamp
+    last_update_time: new Date().toISOString(),
+    race_id: `race-${Date.now()}` // Unique race identifier
   }
   
   const { data, error } = await supabaseClient
@@ -252,10 +264,11 @@ async function startNewRace() {
     return null
   }
   
-  console.log('✅ New race created with STABLE horses - no regeneration during race cycle')
+  console.log('✅ SINGLE race created with LOCKED horses - no regeneration during race cycle')
   console.log('🌤️ Weather conditions stored:', data.weather_conditions)
-  console.log('🏇 Horses with ELO ratings (LOCKED):', horses.map(h => ({ name: h.name, elo: h.elo })))
+  console.log('🏇 Horses LOCKED for entire race cycle:', horses.map(h => ({ name: h.name, elo: h.elo })))
   console.log('⏰ Race initialized at pre-race stage with 10 second timer')
+  console.log('🔒 Race ID:', data.race_id)
   return data
 }
 
@@ -481,24 +494,35 @@ function getHorseColor(horseName: string): string {
 
 async function updateRaceState() {
   try {
-    // Get current race state
-    const { data: raceState, error: fetchError } = await supabaseClient
+    // Get current race state - ensure we only get ONE
+    const { data: raceStates, error: fetchError } = await supabaseClient
       .from('race_state')
       .select('*')
+      .order('created_at', { ascending: false })
       .limit(1)
-      .single()
 
-    if (fetchError || !raceState) {
+    if (fetchError) {
+      console.error('Error fetching race state:', fetchError)
+      return
+    }
+
+    // If no race state or multiple states, clean up and create new one
+    if (!raceStates || raceStates.length === 0) {
       console.log('No race state found, creating new race...')
       await startNewRace()
       return
     }
 
+    const raceState = raceStates[0] // Get the most recent one
+
+    // CRITICAL: Never modify horses array during race cycle
+    // Horses are LOCKED from pre-race through finished state
+    
     // Track real seconds using timestamps instead of simple counters
     const now = Date.now()
-    const lastUpdate = raceState.last_update_time ? new Date(raceState.last_update_time).getTime() : (now - 1100) // Default to 1.1 seconds ago if no timestamp
-    const timeDelta = (now - lastUpdate) / 1000 // Convert to seconds
-    
+    const lastUpdate = raceState.last_update_time ? new Date(raceState.last_update_time).getTime() : (now - 1100)
+    const timeDelta = (now - lastUpdate) / 1000
+
     // Only update timers if at least 1 full second has passed
     const shouldUpdateTimers = timeDelta >= 1.0
     // But update race progress more frequently for smooth animation
@@ -509,48 +533,49 @@ async function updateRaceState() {
     }
     let message = 'Timestamp updated'
 
-    // CRITICAL FIX: Handle PRE-RACE TIMER properly - no state switching during countdown
+    // CRITICAL: Handle PRE-RACE TIMER - horses are LOCKED, no modifications
     if (raceState.race_state === 'pre-race') {
       if (shouldUpdateTimers && raceState.pre_race_timer > 0) {
         const newTimer = Math.max(0, raceState.pre_race_timer - 1)
-        console.log(`⏰ Pre-race timer: ${raceState.pre_race_timer} -> ${newTimer} (delta: ${timeDelta.toFixed(2)}s)`)
+        console.log(`⏰ Pre-race timer: ${raceState.pre_race_timer} -> ${newTimer} (horses LOCKED)`)
 
         updateData = { 
           ...updateData,
           pre_race_timer: newTimer,
           timer_owner: 'server'
-          // CRITICAL: Don't touch horses array or race_state during pre-race countdown
+          // CRITICAL: NEVER modify horses array during any state
         }
-        message = `Pre-race timer updated to ${newTimer}`
+        message = `Pre-race timer updated to ${newTimer} (horses stable)`
 
         // Only transition to countdown when timer reaches exactly 0
         if (newTimer === 0) {
           updateData.race_state = 'countdown'
           updateData.countdown_timer = 10
-          message = 'Pre-race complete - starting countdown phase'
-          console.log('🏁 Pre-race timer finished - transitioning to countdown')
+          message = 'Pre-race complete - starting countdown (horses remain locked)'
+          console.log('🏁 Pre-race timer finished - transitioning to countdown with SAME horses')
         }
       }
     }
-    // Handle COUNTDOWN TIMER (10 seconds before race starts)
+    // Handle COUNTDOWN TIMER - horses remain LOCKED
     else if (raceState.race_state === 'countdown') {
       if (shouldUpdateTimers) {
         const currentCountdown = raceState.countdown_timer || 10
         const newCountdown = Math.max(0, currentCountdown - 1)
-        console.log(`⏰ Countdown timer: ${currentCountdown} -> ${newCountdown} (delta: ${timeDelta.toFixed(2)}s)`)
+        console.log(`⏰ Countdown timer: ${currentCountdown} -> ${newCountdown} (horses LOCKED)`)
 
         updateData = { 
           ...updateData,
           countdown_timer: newCountdown,
           timer_owner: 'server'
+          // CRITICAL: horses array is NEVER touched
         }
-        message = `Countdown timer updated to ${newCountdown}`
+        message = `Countdown timer updated to ${newCountdown} (horses stable)`
 
         // Only start race when countdown reaches exactly 0
         if (newCountdown === 0) {
-          // Countdown finished, start race
+          // Initialize race progress for EXISTING horses only
           const initialRaceProgress: RaceProgress = {}
-          const horses = raceState.horses || []
+          const horses = raceState.horses || [] // Use EXISTING horses
           
           horses.forEach((horse: any) => {
             initialRaceProgress[horse.id] = {
@@ -564,17 +589,17 @@ async function updateRaceState() {
           updateData.race_start_time = new Date().toISOString()
           updateData.race_timer = 0
           updateData.race_progress = initialRaceProgress
-          message = 'Race started!'
-          console.log('🏁 Countdown finished - race started!')
+          message = 'Race started with LOCKED horses!'
+          console.log('🏁 Countdown finished - race started with SAME horses!')
         }
       }
     }
-    // Handle RACE SIMULATION (during race) - Update more frequently for smooth animation
+    // Handle RACE SIMULATION - horses remain LOCKED
     else if (raceState.race_state === 'racing') {
       let raceProgress: RaceProgress = raceState.race_progress || {}
-      const horses = raceState.horses || []
+      const horses = raceState.horses || [] // Use EXISTING horses ONLY
       
-      // Initialize race progress if empty
+      // Initialize race progress if empty (using EXISTING horses)
       if (Object.keys(raceProgress).length === 0) {
         horses.forEach((horse: any) => {
           raceProgress[horse.id] = {
@@ -589,16 +614,16 @@ async function updateRaceState() {
       if (shouldUpdateTimers) {
         const currentRaceTimer = raceState.race_timer || 0
         const newRaceTimer = currentRaceTimer + 1
-        console.log(`⏰ Race timer: ${currentRaceTimer} -> ${newRaceTimer} (delta: ${timeDelta.toFixed(2)}s)`)
+        console.log(`⏰ Race timer: ${currentRaceTimer} -> ${newRaceTimer} (horses LOCKED)`)
         updateData.race_timer = newRaceTimer
-        message = `Race timer updated to ${newRaceTimer}s`
+        message = `Race timer updated to ${newRaceTimer}s (horses stable)`
       }
 
       // Update race progress more frequently (every 250ms) for smooth animation
       if (shouldUpdateRaceProgress || shouldUpdateTimers) {
         const currentRaceTimer = updateData.race_timer || raceState.race_timer || 0
         
-        // Simulate race progress for each horse
+        // Simulate race progress for EXISTING horses only
         let allFinished = true
         const finishedHorses: Array<{id: string, name: string, finishTime: number}> = []
 
@@ -655,7 +680,7 @@ async function updateRaceState() {
           updateData.finish_timer = 0
           message = allFinished ? 'All horses finished!' : 'Race auto-finished after 80 seconds'
           
-          // Create final results with correct placement calculation
+          // Create final results with EXISTING horses
           const finishedHorsesWithTimes = horses.map((horse: any, index: number) => {
             const progress = raceProgress[horse.id]
             return {
@@ -681,7 +706,7 @@ async function updateRaceState() {
             gap: index === 0 ? "0.00s" : `+${(horse.finishTime - finishedHorsesWithTimes[0].finishTime).toFixed(2)}s`
           }))
           
-          console.log('🏁 Final race results:', results.map(r => `${r.placement}. ${r.name} (${r.finishTime.toFixed(2)}s)`))
+          console.log('🏁 Final race results with LOCKED horses:', results.map(r => `${r.placement}. ${r.name} (${r.finishTime.toFixed(2)}s)`))
           
           updateData.race_results = results
           
@@ -707,13 +732,13 @@ async function updateRaceState() {
         }
       }
     }
-    // Handle FINISHED state with proper timing - INCREASED DELAY BEFORE NEW RACE
+    // Handle FINISHED state - horses remain LOCKED until new race
     else if (raceState.race_state === 'finished') {
       if (shouldUpdateTimers) {
         const currentFinishTimer = raceState.finish_timer || 0
         const newFinishTimer = currentFinishTimer + 1
         
-        console.log(`🏁 Finish timer: ${currentFinishTimer} -> ${newFinishTimer} (delta: ${timeDelta.toFixed(2)}s)`)
+        console.log(`🏁 Finish timer: ${currentFinishTimer} -> ${newFinishTimer} (horses LOCKED until new race)`)
         
         // Handle photo finish sequence (3 seconds)
         if (raceState.show_photo_finish && newFinishTimer <= 3) {
@@ -733,7 +758,7 @@ async function updateRaceState() {
           }
           message = 'Photo finish complete - showing results'
         }
-        // Handle results display (15 seconds total - INCREASED from 10)
+        // Handle results display (15 seconds total)
         else if (raceState.show_results && newFinishTimer <= 15) {
           updateData = {
             ...updateData,
@@ -741,14 +766,17 @@ async function updateRaceState() {
           }
           message = `Results display: ${newFinishTimer}/15 seconds`
         }
-        // Start new race after 15 seconds - INCREASED DELAY
+        // Start new race after 15 seconds - ONLY NOW create new horses
         else if (newFinishTimer > 15) {
-          console.log('🔄 Starting new race after 15 seconds...')
+          console.log('🔄 Starting new race after 15 seconds - NOW creating new horses...')
+          
+          // Clean up current race state completely
           await supabaseClient
             .from('race_state')
             .delete()
-            .neq('id', '00000000-0000-0000-0000-000000000000')
+            .gte('id', '00000000-0000-0000-0000-000000000000')
           
+          // Start completely new race with new horses
           await startNewRace()
           return
         }
