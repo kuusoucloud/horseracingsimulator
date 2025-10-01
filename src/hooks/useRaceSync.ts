@@ -90,7 +90,7 @@ export function useRaceSync() {
     }
   }, []);
 
-  // Load initial race state and start moderate polling
+  // Load initial race state and start fast polling for real-time sync
   useEffect(() => {
     const loadRaceState = async () => {
       if (!supabase) return;
@@ -120,9 +120,9 @@ export function useRaceSync() {
 
     loadRaceState();
 
-    // Reduce polling to every 2 seconds to prevent lag and flickering
-    console.log('🔄 Starting polling every 2000ms for stable sync...');
-    pollingInterval.current = setInterval(pollRaceState, 2000);
+    // Fast polling every 500ms for real-time timer sync
+    console.log('🔄 Starting fast polling every 500ms for timer sync...');
+    pollingInterval.current = setInterval(pollRaceState, 500);
 
     return () => {
       if (pollingInterval.current) {

@@ -492,17 +492,16 @@ async function updateRaceState() {
       return
     }
 
-    // Only update if race actually needs progression
+    // Only update if race actually needs progression - simplified logic
     const needsUpdate = (
       (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) ||
-      (raceState.race_state === 'countdown' && raceState.countdown_timer > 0) ||
-      (raceState.race_state === 'racing' && raceState.race_timer < 80) ||
-      (raceState.race_state === 'finished' && raceState.finish_timer <= 10)
+      (raceState.race_state === 'countdown' && (raceState.countdown_timer || 0) > 0) ||
+      (raceState.race_state === 'racing') ||
+      (raceState.race_state === 'finished' && (raceState.finish_timer || 0) <= 10)
     )
 
     if (!needsUpdate) {
       // Race is in a stable state, no update needed
-      console.log(`⏸️ Race stable in ${raceState.race_state} state, no update needed`)
       return
     }
 
@@ -778,13 +777,16 @@ function startRaceLoop() {
     return
   }
 
-  console.log('🏁 Starting race server loop...')
+  console.log('🏁 Starting race server loop with precise timing...')
   isRaceLoopRunning = true
   
   // Use setInterval for consistent 1-second updates
   raceLoopInterval = setInterval(async () => {
     try {
+      const startTime = Date.now()
       await updateRaceState()
+      const endTime = Date.now()
+      console.log(`⏱️ Server update took ${endTime - startTime}ms`)
     } catch (error) {
       console.error('Error in race loop:', error)
     }

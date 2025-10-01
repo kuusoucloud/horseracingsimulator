@@ -45,13 +45,14 @@ export default function RaceController({
               : raceState === "pre-race" 
               ? "🏇 Race Starting..." 
               : raceState === "countdown" 
-              ? "🏁 Starting..." 
+              ? `🏁 Starting in ${countdownTimer}s` 
               : raceState === "racing" 
               ? "🏇 Racing" 
               : "🏆 Finished"
             }
           </div>
           
+          {/* Server-controlled timer displays */}
           {preRaceTimer > 0 && raceState === "pre-race" && (
             <div className="text-4xl font-bold text-white animate-pulse bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mt-3">
               {preRaceTimer}
@@ -84,7 +85,7 @@ export default function RaceController({
         {/* Server status indicator */}
         <div className="text-center">
           <div className="text-xs text-white/70 bg-gradient-to-r from-green-400/20 to-blue-400/20 px-3 py-1 rounded-full border border-white/10">
-            🖥️ Server Controlled
+            🖥️ Server Controlled - All Timers Synced
           </div>
         </div>
       </div>
