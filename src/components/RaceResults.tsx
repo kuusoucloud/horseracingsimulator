@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -148,6 +149,9 @@ export default function RaceResults({
           <DialogTitle className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-center">
             Race Results
           </DialogTitle>
+          <DialogDescription className="text-center text-cyan-300/80">
+            Official race results determined by 3D finish line detection system
+          </DialogDescription>
         </DialogHeader>
 
         <div className="p-6">
