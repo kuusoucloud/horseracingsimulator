@@ -76,7 +76,7 @@ const supabaseClient = createClient(
 )
 
 // ELO Rating System Constants
-const STARTING_ELO = 500;
+const STARTING_ELO = 500; // All horses start at 500 ELO
 const K_FACTOR_PODIUM = 192; // Increased K-factor for podium finishers (1st, 2nd, 3rd)
 const K_FACTOR_OTHERS = 32; // Standard K-factor for others
 
@@ -497,7 +497,7 @@ async function updateRaceState() {
       (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) ||
       (raceState.race_state === 'countdown' && raceState.countdown_timer > 0) ||
       (raceState.race_state === 'racing') ||
-      (raceState.race_state === 'finished' && (!raceState.finish_timer || raceState.finish_timer <= 13))
+      (raceState.race_state === 'finished' && (!raceState.finish_timer || raceState.finish_timer <= 10))
     )
 
     if (!needsUpdate) {
@@ -597,11 +597,11 @@ async function updateRaceState() {
         }
 
         const currentPosition = horseProgress.position || 0
-        const horseELO = horse.elo || 1200
+        const horseELO = horse.elo || 500 // Use 500 as default starting ELO
         
-        // Convert ELO to speed (higher ELO = faster) - ORIGINAL SPEEDS
-        const eloNormalized = Math.max(0, Math.min(1, (horseELO - 400) / 1700))
-        const baseSpeed = 15 + (eloNormalized * 25) // 15-40 meters per second (original)
+        // Convert ELO to speed (higher ELO = faster) - Adjusted for 500 starting ELO
+        const eloNormalized = Math.max(0, Math.min(1, (horseELO - 200) / 1300)) // 200-1500 ELO range
+        const baseSpeed = 15 + (eloNormalized * 25) // 15-40 meters per second
         
         // Add randomness for exciting races - ORIGINAL RANDOMNESS
         const randomFactor = 0.7 + Math.random() * 0.6
@@ -647,28 +647,33 @@ async function updateRaceState() {
         updateData.finish_timer = 0
         message = allFinished ? 'All horses finished!' : 'Race auto-finished after 80 seconds'
         
-        // Create final results
-        const results = horses.map((horse: any, index: number) => {
+        // Create final results with CORRECT placement calculation
+        const finishedHorsesWithTimes = horses.map((horse: any, index: number) => {
           const progress = raceProgress[horse.id]
-          const placement = progress?.finished ? 
-            finishedHorses.findIndex(f => f.id === horse.id) + 1 : 
-            horses.length
-          
           return {
             id: horse.id,
             name: horse.name,
             position: progress?.position || 0,
             finishTime: progress?.finishTime || newRaceTimer,
-            placement: placement,
             lane: index + 1,
             odds: horse.odds || 2.0,
-            gap: placement === 1 ? "0.00s" : `+${((progress?.finishTime || newRaceTimer) - (finishedHorses[0]?.finishTime || newRaceTimer)).toFixed(2)}s`,
             horse: horse
           }
         }).sort((a, b) => {
-          if (a.placement !== b.placement) return a.placement - b.placement
-          return a.finishTime - b.finishTime
+          // Sort by finish time (fastest first)
+          if (a.finishTime !== b.finishTime) return a.finishTime - b.finishTime
+          // If same finish time, sort by position (furthest first)
+          return b.position - a.position
         })
+        
+        // Assign correct placements based on sorted order
+        const results = finishedHorsesWithTimes.map((horse, index) => ({
+          ...horse,
+          placement: index + 1, // 1st, 2nd, 3rd, etc.
+          gap: index === 0 ? "0.00s" : `+${(horse.finishTime - finishedHorsesWithTimes[0].finishTime).toFixed(2)}s`
+        }))
+        
+        console.log('🏁 Final race results:', results.map(r => `${r.placement}. ${r.name} (${r.finishTime.toFixed(2)}s)`))
         
         updateData.race_results = results
         
@@ -723,15 +728,15 @@ async function updateRaceState() {
           }
           message = 'Photo finish complete - showing results'
         }
-        // Handle results display (10 seconds total)
-        else if (raceState.show_results && newFinishTimer <= 13) {
+        // Handle results display (10 seconds total from finish)
+        else if (raceState.show_results && newFinishTimer <= 10) {
           updateData = {
             finish_timer: newFinishTimer
           }
-          message = `Results display: ${newFinishTimer}/13 seconds`
+          message = `Results display: ${newFinishTimer}/10 seconds`
         }
-        // Start new race after results display
-        else if (newFinishTimer > 13) {
+        // Start new race after results display (10 seconds)
+        else if (newFinishTimer > 10) {
           console.log('🔄 Results shown for 10 seconds, starting new race...')
           await startNewRace()
           return

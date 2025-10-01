@@ -70,7 +70,7 @@ export default function RaceResults({
     return () => clearInterval(timer);
   }, [isOpen, onNewRace]);
 
-  // Reset countdown when dialog opens
+  // Remove auto-click timer - let server handle timing
   useEffect(() => {
     if (isOpen && results.length > 0) {
       setCountdown(10);
@@ -231,10 +231,10 @@ export default function RaceResults({
             })}
           </div>
 
-          {/* Action Buttons - Remove all buttons, keep auto-click timer */}
+          {/* Action Buttons - Server controlled timing */}
           <div className="flex gap-4 justify-center">
             <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-3 rounded-lg font-bold text-lg shadow-lg">
-              🏇 New Race ({countdown}s)
+              🏇 Server will start new race automatically
             </div>
           </div>
         </div>
