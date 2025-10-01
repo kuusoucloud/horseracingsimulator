@@ -186,9 +186,9 @@ export default function Home() {
   };
 
   // Betting handler (placeholder - not used in server-controlled version)
-  const handlePlaceBet = (horseId: string, amount: number) => {
-    console.log('🎰 Bet placed:', { horseId, amount });
-    setSelectedBet({ horseId, amount });
+  const handlePlaceBet = (horse: Horse, amount: number) => {
+    console.log('🎰 Bet placed:', { horseId: horse.id, horseName: horse.name, amount });
+    setSelectedBet({ horseId: horse.id, amount });
   };
 
   // Don't render until client-side hydration is complete
