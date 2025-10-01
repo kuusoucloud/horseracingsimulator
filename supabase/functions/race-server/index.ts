@@ -77,11 +77,15 @@ Deno.serve(async (req) => {
     if (!existingRace || existingRace.race_state === 'finished') {
       console.log('🏇 Creating new race...')
       
-      // Generate new horses with ELO ratings
+      // Generate new horses with ELO ratings and proper initialization
       const newHorses = generateRandomHorses(8)
-      const horsesWithOdds = newHorses.map(horse => ({
+      const horsesWithOdds = newHorses.map((horse, index) => ({
         ...horse,
-        odds: calculateOddsFromELO(horse.elo)
+        odds: calculateOddsFromELO(horse.elo),
+        position: 0, // Ensure position starts at 0
+        lane: index + 1,
+        finishTime: null,
+        placement: null
       }))
       
       // Generate weather conditions

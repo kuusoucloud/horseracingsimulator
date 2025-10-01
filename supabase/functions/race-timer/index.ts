@@ -87,7 +87,11 @@ Deno.serve(async (req) => {
       const updatedHorses = horses.map((horse: any) => {
         if (horse.finishTime) return horse // Already finished
         
-        const progress = Math.min(1200, horse.position + (Math.random() * 30 + 10))
+        // Ensure horse has a starting position
+        const currentPosition = horse.position || 0
+        const baseSpeed = (horse.speed || 0.5) * 20 // Base speed multiplier
+        const randomVariation = Math.random() * 10 + 5 // Random variation 5-15
+        const progress = Math.min(1200, currentPosition + baseSpeed + randomVariation)
         const finished = progress >= 1200
         
         return {
