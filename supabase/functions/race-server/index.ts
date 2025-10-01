@@ -509,31 +509,26 @@ async function updateRaceState() {
     }
     let message = 'Timestamp updated'
 
-    // Handle PRE-RACE TIMER (10 seconds countdown) - FIXED: Don't regenerate horses during pre-race
-    if (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) {
-      if (shouldUpdateTimers) {
+    // CRITICAL FIX: Handle PRE-RACE TIMER properly - no state switching during countdown
+    if (raceState.race_state === 'pre-race') {
+      if (shouldUpdateTimers && raceState.pre_race_timer > 0) {
         const newTimer = Math.max(0, raceState.pre_race_timer - 1)
         console.log(`⏰ Pre-race timer: ${raceState.pre_race_timer} -> ${newTimer} (delta: ${timeDelta.toFixed(2)}s)`)
 
-        if (newTimer > 0) {
-          updateData = { 
-            ...updateData,
-            pre_race_timer: newTimer,
-            timer_owner: 'server'
-            // CRITICAL: Don't touch horses array during pre-race countdown
-          }
-          message = `Pre-race timer updated to ${newTimer}`
-        } else {
-          // Timer reached 0, start countdown phase - KEEP EXISTING HORSES
-          updateData = { 
-            ...updateData,
-            pre_race_timer: 0,
-            race_state: 'countdown',
-            countdown_timer: 10,
-            timer_owner: 'server'
-            // CRITICAL: Don't regenerate horses here - keep existing ones
-          }
-          message = 'Starting countdown phase with existing horses'
+        updateData = { 
+          ...updateData,
+          pre_race_timer: newTimer,
+          timer_owner: 'server'
+          // CRITICAL: Don't touch horses array or race_state during pre-race countdown
+        }
+        message = `Pre-race timer updated to ${newTimer}`
+
+        // Only transition to countdown when timer reaches exactly 0
+        if (newTimer === 0) {
+          updateData.race_state = 'countdown'
+          updateData.countdown_timer = 10
+          message = 'Pre-race complete - starting countdown phase'
+          console.log('🏁 Pre-race timer finished - transitioning to countdown')
         }
       }
     }
@@ -544,14 +539,15 @@ async function updateRaceState() {
         const newCountdown = Math.max(0, currentCountdown - 1)
         console.log(`⏰ Countdown timer: ${currentCountdown} -> ${newCountdown} (delta: ${timeDelta.toFixed(2)}s)`)
 
-        if (newCountdown > 0) {
-          updateData = { 
-            ...updateData,
-            countdown_timer: newCountdown,
-            timer_owner: 'server'
-          }
-          message = `Countdown timer updated to ${newCountdown}`
-        } else {
+        updateData = { 
+          ...updateData,
+          countdown_timer: newCountdown,
+          timer_owner: 'server'
+        }
+        message = `Countdown timer updated to ${newCountdown}`
+
+        // Only start race when countdown reaches exactly 0
+        if (newCountdown === 0) {
           // Countdown finished, start race
           const initialRaceProgress: RaceProgress = {}
           const horses = raceState.horses || []
@@ -564,16 +560,12 @@ async function updateRaceState() {
             }
           })
 
-          updateData = { 
-            ...updateData,
-            countdown_timer: 0,
-            race_state: 'racing',
-            race_start_time: new Date().toISOString(),
-            race_timer: 0,
-            race_progress: initialRaceProgress,
-            timer_owner: 'server'
-          }
+          updateData.race_state = 'racing'
+          updateData.race_start_time = new Date().toISOString()
+          updateData.race_timer = 0
+          updateData.race_progress = initialRaceProgress
           message = 'Race started!'
+          console.log('🏁 Countdown finished - race started!')
         }
       }
     }
