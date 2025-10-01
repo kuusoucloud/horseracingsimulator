@@ -139,10 +139,10 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
           elo: 500, 
           total_races: 0, 
           wins: 0, 
-          recent_form: [],
+          recent_form: [] as number[],
           updated_at: new Date().toISOString()
-        })
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all horses
+        } as any)
+        .gt('id', ''); // Update all horses with a valid condition
       
       if (error) {
         console.error('Error resetting ELO ratings:', error);
