@@ -10,6 +10,36 @@ const supabaseClient = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 )
 
+// Generate weather conditions that match client expectations
+function generateWeatherConditions() {
+  // Twilight is 10% chance
+  const isTwilight = Math.random() < 0.1;
+  // Rain is 10% chance
+  const isRainy = Math.random() < 0.1;
+
+  if (isTwilight) {
+    return {
+      timeOfDay: "night",
+      weather: isRainy ? "rain" : "clear",
+      skyColor: isRainy ? "#4a4a6b" : "#6a5acd",
+      ambientIntensity: 0.6,
+      directionalIntensity: 0.8,
+      trackColor: isRainy ? "#5d4e37" : "#8B4513",
+      grassColor: isRainy ? "#2d5a2d" : "#228b22",
+    };
+  } else {
+    return {
+      timeOfDay: "day",
+      weather: isRainy ? "rain" : "clear",
+      skyColor: isRainy ? "#6b7280" : "#87ceeb",
+      ambientIntensity: 0.4,
+      directionalIntensity: isRainy ? 0.7 : 1.0,
+      trackColor: isRainy ? "#5d4e37" : "#8B4513",
+      grassColor: isRainy ? "#2d5a2d" : "#32cd32",
+    };
+  }
+}
+
 // Simple horse generation function with odds calculation
 function generateSimpleHorses(count: number) {
   const names = [
@@ -64,7 +94,9 @@ Deno.serve(async (req) => {
       console.log('❌ No race state - creating with horses...')
       
       const horses = generateSimpleHorses(8)
+      const weather = generateWeatherConditions()
       console.log('🏇 Generated horses:', horses.map(h => `${h.name} (${h.odds}:1)`))
+      console.log('🌤️ Generated weather:', weather)
       
       // Use the correct schema fields that match the database
       const { data: newRace, error: createError } = await supabaseClient
@@ -74,7 +106,8 @@ Deno.serve(async (req) => {
           horses: horses,
           race_progress: {},
           pre_race_timer: 10,
-          race_results: []
+          race_results: [],
+          weather_conditions: weather
         })
         .select()
         .single()
@@ -93,7 +126,8 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ 
         status: 'race_created', 
         horses: horses.length,
-        message: 'New race created with horses'
+        weather: weather,
+        message: 'New race created with horses and weather'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -104,11 +138,13 @@ Deno.serve(async (req) => {
       console.log('❌ No horses - adding them...')
       
       const horses = generateSimpleHorses(8)
+      const weather = currentRaceState.weather_conditions || generateWeatherConditions()
       
       const { error: updateError } = await supabaseClient
         .from('race_state')
         .update({ 
-          horses: horses
+          horses: horses,
+          weather_conditions: weather
         })
         .eq('id', currentRaceState.id)
 
@@ -126,11 +162,35 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ 
         status: 'horses_added', 
         horses: horses.length,
-        message: 'Horses added'
+        weather: weather,
+        message: 'Horses and weather added'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       });
+    }
+
+    // Ensure weather exists and has correct format
+    if (!currentRaceState.weather_conditions || 
+        !currentRaceState.weather_conditions.timeOfDay ||
+        !currentRaceState.weather_conditions.weather ||
+        !currentRaceState.weather_conditions.skyColor) {
+      console.log('❌ Invalid weather - fixing it...')
+      
+      const weather = generateWeatherConditions()
+      
+      const { error: updateError } = await supabaseClient
+        .from('race_state')
+        .update({ 
+          weather_conditions: weather
+        })
+        .eq('id', currentRaceState.id)
+
+      if (updateError) {
+        console.error('❌ Weather update error:', updateError)
+      } else {
+        console.log('🌤️ Weather fixed:', weather)
+      }
     }
 
     console.log('✅ Horses exist:', currentRaceState.horses.length)
@@ -138,7 +198,8 @@ Deno.serve(async (req) => {
       status: 'ok', 
       horses: currentRaceState.horses.length,
       race_state: currentRaceState.race_state,
-      message: 'Race server running with horses'
+      weather: currentRaceState.weather_conditions,
+      message: 'Race server running with horses and weather'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
