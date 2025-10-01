@@ -25,6 +25,8 @@ interface RaceStateRow {
 
 type SyncedRaceData = Omit<RaceStateRow, 'id' | 'created_at' | 'updated_at'>;
 
+export type RaceState = 'pre-race' | 'countdown' | 'racing' | 'finished';
+
 // Generate random horses client-side as fallback
 function generateRandomHorses(count: number = 8): Horse[] {
   const names = [
@@ -306,7 +308,7 @@ export function useRaceSync() {
                 if (raceData.horses && raceData.horses.length > 0) {
                   const currentRaceId = raceData.horses.map(h => h.id).join('-');
                   if (currentRaceId !== lastRaceId.current) {
-                    console.log('🏇 Real-time: New race detected - updating client horse cache');
+                    console.log('📡 Real-time: New race detected - updating client horse cache');
                     setClientHorses([...raceData.horses]);
                     lastRaceId.current = currentRaceId;
                   }
