@@ -91,15 +91,15 @@ Deno.serve(async (req) => {
         updateData = { 
           pre_race_timer: 0,
           race_state: 'countdown',
-          countdown_timer: 10, // Start 10-second countdown
+          countdown_timer: 3, // Shorter countdown for faster action
           timer_owner: 'server'
         }
         message = 'Starting countdown phase'
       }
     }
-    // Handle COUNTDOWN TIMER (10 seconds before race starts)
+    // Handle COUNTDOWN TIMER (3 seconds before race starts)
     else if (raceState.race_state === 'countdown') {
-      const currentCountdown = raceState.countdown_timer || 10
+      const currentCountdown = raceState.countdown_timer || 3
       const newCountdown = currentCountdown - 1
       console.log(`⏰ Countdown timer: ${currentCountdown} -> ${newCountdown}`)
 
@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
           countdown_timer: 0,
           race_state: 'racing',
           race_start_time: new Date().toISOString(),
-          race_timer: 0,
+          race_timer: 1, // Start at 1 second instead of 0
           race_progress: initialRaceProgress,
           timer_owner: 'server'
         }
@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
     else if (raceState.race_state === 'racing') {
       const currentRaceTimer = raceState.race_timer || 0
       const newRaceTimer = currentRaceTimer + 1 // Increment race timer
-      console.log(`⏰ Race timer: ${currentRaceTimer} -> ${newRaceTimer}`)
+      console.log(`🏇 RACE PROGRESS: Timer ${currentRaceTimer} -> ${newRaceTimer}`)
 
       // Get current race progress or initialize
       let raceProgress: RaceProgress = raceState.race_progress || {}
@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
         race_progress: raceProgress,
         timer_owner: 'server'
       }
-      message = `Race timer updated to ${newRaceTimer}s`
+      message = `Race progressing - ${newRaceTimer}s elapsed`
 
       // Check if race should finish
       if (allFinished || newRaceTimer >= 80) {
@@ -249,6 +249,8 @@ Deno.serve(async (req) => {
 
     // Apply updates if any
     if (Object.keys(updateData).length > 0) {
+      console.log(`🔄 Applying updates:`, updateData)
+      
       const { error: updateError } = await supabaseClient
         .from('race_state')
         .update(updateData)
@@ -265,7 +267,7 @@ Deno.serve(async (req) => {
         )
       }
 
-      console.log('✅ Race state updated:', updateData)
+      console.log('✅ Race state updated successfully')
     }
 
     return new Response(
@@ -276,6 +278,7 @@ Deno.serve(async (req) => {
         current_timer: raceState.pre_race_timer,
         countdown_timer: raceState.countdown_timer,
         race_timer: raceState.race_timer,
+        new_race_timer: updateData.race_timer,
         race_progress: raceState.race_progress
       }),
       { 
