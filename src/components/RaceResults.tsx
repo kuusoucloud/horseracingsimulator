@@ -101,6 +101,12 @@ export default function RaceResults({
   const sortedResults = [...results].sort((a, b) => a.placement - b.placement);
   const podiumHorses = sortedResults.slice(0, 3); // Top 3 by placement
 
+  console.log('🏁 Race Results Debug:', {
+    originalResults: results.map(r => ({ name: r.name, placement: r.placement, finishTime: r.finishTime })),
+    sortedResults: sortedResults.map(r => ({ name: r.name, placement: r.placement, finishTime: r.finishTime })),
+    podiumHorses: podiumHorses.map(r => ({ name: r.name, placement: r.placement, finishTime: r.finishTime }))
+  });
+
   const handleNewRace = () => {
     onClose();
     setTimeout(() => {
@@ -220,7 +226,7 @@ export default function RaceResults({
 
                   <div className="space-y-1">
                     <Badge className="bg-cyan-500/20 border-cyan-400/50 text-cyan-300 text-xs">
-                      {horse.finishTime?.toFixed(6)}s
+                      {horse.finishTime?.toFixed(2)}s
                     </Badge>
                     <div className="text-emerald-300 text-sm font-semibold">
                       {(horse.horse?.odds || horse.odds || 1).toFixed(2)}:1 odds
@@ -229,6 +235,49 @@ export default function RaceResults({
                 </div>
               );
             })}
+          </div>
+
+          {/* All Results Table - Show all horses with their correct positions */}
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/20 mb-6">
+            <h3 className="text-xl font-bold text-white mb-4 text-center">Complete Results</h3>
+            <div className="grid grid-cols-1 gap-2">
+              {sortedResults.map((horse, index) => {
+                const horseName = horse.horse?.name || horse.name;
+                return (
+                  <div
+                    key={horse.horse?.id || horse.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      horse.placement <= 3 
+                        ? 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-500/30' 
+                        : 'bg-white/5 border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
+                        horse.placement === 1 ? 'bg-yellow-500' :
+                        horse.placement === 2 ? 'bg-gray-400' :
+                        horse.placement === 3 ? 'bg-amber-600' :
+                        'bg-slate-600'
+                      }`}>
+                        {horse.placement}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white">{horseName}</h4>
+                        <p className="text-sm text-white/60">Lane {horse.lane}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-white font-mono font-bold">
+                        {horse.finishTime?.toFixed(2)}s
+                      </div>
+                      <div className="text-sm text-white/60">
+                        {horse.gap || '0.00s'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Server controlled timing display */}

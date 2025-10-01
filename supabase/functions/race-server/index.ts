@@ -501,6 +501,8 @@ async function updateRaceState() {
     
     // Only update timers if at least 1 full second has passed
     const shouldUpdateTimers = timeDelta >= 1.0
+    // But update race progress more frequently for smooth animation
+    const shouldUpdateRaceProgress = timeDelta >= 0.25 && raceState.race_state === 'racing'
 
     let updateData: any = {
       last_update_time: new Date(now).toISOString() // Always update timestamp
@@ -573,27 +575,35 @@ async function updateRaceState() {
         }
       }
     }
-    // Handle RACE SIMULATION (during race)
+    // Handle RACE SIMULATION (during race) - Update more frequently for smooth animation
     else if (raceState.race_state === 'racing') {
+      let raceProgress: RaceProgress = raceState.race_progress || {}
+      const horses = raceState.horses || []
+      
+      // Initialize race progress if empty
+      if (Object.keys(raceProgress).length === 0) {
+        horses.forEach((horse: any) => {
+          raceProgress[horse.id] = {
+            position: 0,
+            speed: 0,
+            finished: false
+          }
+        })
+      }
+
+      // Update race timer only every second
       if (shouldUpdateTimers) {
         const currentRaceTimer = raceState.race_timer || 0
         const newRaceTimer = currentRaceTimer + 1
         console.log(`⏰ Race timer: ${currentRaceTimer} -> ${newRaceTimer} (delta: ${timeDelta.toFixed(2)}s)`)
+        updateData.race_timer = newRaceTimer
+        message = `Race timer updated to ${newRaceTimer}s`
+      }
 
-        let raceProgress: RaceProgress = raceState.race_progress || {}
-        const horses = raceState.horses || []
+      // Update race progress more frequently (every 250ms) for smooth animation
+      if (shouldUpdateRaceProgress || shouldUpdateTimers) {
+        const currentRaceTimer = updateData.race_timer || raceState.race_timer || 0
         
-        // Initialize race progress if empty
-        if (Object.keys(raceProgress).length === 0) {
-          horses.forEach((horse: any) => {
-            raceProgress[horse.id] = {
-              position: 0,
-              speed: 0,
-              finished: false
-            }
-          })
-        }
-
         // Simulate race progress for each horse
         let allFinished = true
         const finishedHorses: Array<{id: string, name: string, finishTime: number}> = []
@@ -615,8 +625,9 @@ async function updateRaceState() {
           const randomFactor = 0.7 + Math.random() * 0.6
           const currentSpeed = baseSpeed * randomFactor
           
-          // Calculate new position (1 second intervals)
-          const newPosition = Math.min(currentPosition + currentSpeed, 1200)
+          // Calculate new position - use actual time delta for smooth movement
+          const positionIncrement = currentSpeed * timeDelta
+          const newPosition = Math.min(currentPosition + positionIncrement, 1200)
           
           // Check if horse finished
           if (newPosition >= 1200 && !horseProgress.finished) {
@@ -624,14 +635,14 @@ async function updateRaceState() {
               position: 1200,
               speed: currentSpeed,
               finished: true,
-              finishTime: newRaceTimer
+              finishTime: currentRaceTimer + (timeDelta * (1200 - currentPosition) / positionIncrement)
             }
             finishedHorses.push({
               id: horse.id,
               name: horse.name,
-              finishTime: newRaceTimer
+              finishTime: raceProgress[horse.id].finishTime!
             })
-            console.log(`🏁 ${horse.name} finished at ${newRaceTimer}s`)
+            console.log(`🏁 ${horse.name} finished at ${raceProgress[horse.id].finishTime!.toFixed(2)}s`)
           } else {
             raceProgress[horse.id] = {
               position: newPosition,
@@ -642,16 +653,10 @@ async function updateRaceState() {
           }
         })
 
-        updateData = { 
-          ...updateData,
-          race_timer: newRaceTimer,
-          race_progress: raceProgress,
-          timer_owner: 'server'
-        }
-        message = `Race timer updated to ${newRaceTimer}s`
+        updateData.race_progress = raceProgress
 
-        // Check if race should finish
-        if (allFinished || newRaceTimer >= 80) {
+        // Check if race should finish (only on timer updates)
+        if (shouldUpdateTimers && (allFinished || currentRaceTimer >= 80)) {
           updateData.race_state = 'finished'
           updateData.finish_timer = 0
           message = allFinished ? 'All horses finished!' : 'Race auto-finished after 80 seconds'
@@ -663,14 +668,17 @@ async function updateRaceState() {
               id: horse.id,
               name: horse.name,
               position: progress?.position || 0,
-              finishTime: progress?.finishTime || newRaceTimer,
+              finishTime: progress?.finishTime || currentRaceTimer,
               lane: index + 1,
               odds: horse.odds || 2.0,
               horse: horse
             }
           }).sort((a, b) => {
-            if (a.finishTime !== b.finishTime) return a.finishTime - b.finishTime
-            return b.position - a.position
+            // Sort by finish time first, then by position if times are equal
+            if (Math.abs(a.finishTime - b.finishTime) < 0.01) {
+              return b.position - a.position
+            }
+            return a.finishTime - b.finishTime
           })
           
           const results = finishedHorsesWithTimes.map((horse, index) => ({
@@ -763,7 +771,7 @@ async function updateRaceState() {
     }
 
     // Apply updates only if we have meaningful changes
-    if (shouldUpdateTimers || Object.keys(updateData).length > 1) {
+    if (shouldUpdateTimers || shouldUpdateRaceProgress || Object.keys(updateData).length > 1) {
       const { error: updateError } = await supabaseClient
         .from('race_state')
         .update(updateData)

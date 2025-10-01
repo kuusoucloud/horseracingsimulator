@@ -28,6 +28,7 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
   const [leaderboard, setLeaderboard] = useState<Horse[]>([]);
   const [topHorses, setTopHorses] = useState<Horse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // ELO Tiers definition - all tiers restored with Mythical as pink, Rookie removed
   const eloTiers = [
@@ -43,9 +44,14 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
     { name: 'Novice', threshold: 1000, bg: 'bg-red-500/10', border: 'border-red-500/30', textColor: 'text-red-300' }
   ];
 
-  const refreshLeaderboard = async () => {
+  const refreshLeaderboard = async (showRefreshIndicator = false) => {
     try {
-      setLoading(true);
+      if (showRefreshIndicator) {
+        setIsRefreshing(true);
+      } else if (loading) {
+        setLoading(true);
+      }
+      
       console.log('🏆 Fetching ELO leaderboard from database...');
       
       const { data: horses, error } = await supabase
@@ -68,14 +74,15 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
       console.error('Error refreshing leaderboard:', error);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
     refreshLeaderboard();
     
-    // Refresh every 5 seconds instead of constantly
-    const interval = setInterval(refreshLeaderboard, 5000);
+    // Refresh every 10 seconds instead of 5 to reduce flickering
+    const interval = setInterval(() => refreshLeaderboard(true), 10000);
     
     return () => clearInterval(interval);
   }, []);
@@ -94,7 +101,7 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
         }, 
         (payload) => {
           console.log('🔄 Horse data changed, refreshing leaderboard...', payload);
-          refreshLeaderboard();
+          refreshLeaderboard(true);
         }
       )
       .subscribe();
@@ -161,8 +168,12 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
             <div className="flex items-center gap-2">
               <Trophy className="w-4 h-4 text-yellow-400" />
               <h2 className="text-sm font-bold text-white">ELO Leaderboard</h2>
-              <Badge className="bg-green-500/20 border-green-400/50 text-green-300 text-xs">
-                Live
+              <Badge className={`border text-xs transition-all duration-300 ${
+                isRefreshing 
+                  ? 'bg-blue-500/20 border-blue-400/50 text-blue-300 animate-pulse' 
+                  : 'bg-green-500/20 border-green-400/50 text-green-300'
+              }`}>
+                {isRefreshing ? 'Updating...' : 'Live'}
               </Badge>
             </div>
           </motion.div>
@@ -185,7 +196,7 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
                     return (
                       <motion.div
                         key={horse.name}
-                        className={`${rank.bgColor} p-2 rounded-lg border ${rank.borderColor} shadow-lg relative overflow-hidden flex flex-col h-full`}
+                        className={`${rank.bgColor} p-2 rounded-lg border ${rank.borderColor} shadow-lg relative overflow-hidden flex flex-col h-full transition-all duration-300`}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.5, delay: index * 0.05 }}
@@ -258,7 +269,7 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
                 {eloTiers.map((tier, index) => (
                   <motion.div
                     key={tier.name}
-                    className={`p-1 rounded-lg border ${tier.border} ${tier.bg} h-fit`}
+                    className={`p-1 rounded-lg border ${tier.border} ${tier.bg} h-fit transition-all duration-300`}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.05 }}
