@@ -201,7 +201,7 @@ export default function Home() {
       {showPhotoFinish && photoFinishResults && (
         <PhotoFinish
           results={photoFinishResults.slice(0, 3)}
-          onClose={handlePhotoFinishComplete}
+          onClose={() => handlePhotoFinishComplete(photoFinishResults)}
           isVisible={showPhotoFinish}
         />
       )}
