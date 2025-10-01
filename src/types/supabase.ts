@@ -140,7 +140,24 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      calculate_elo_change: {
+        Args: {
+          current_elo: number
+          opponent_avg_elo: number
+          placement: number
+          total_horses: number
+        }
+        Returns: number
+      }
       trigger_race_tick: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      update_horse_elo_after_race: {
+        Args: { race_results: Json }
+        Returns: undefined
+      }
+      update_race_state: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }

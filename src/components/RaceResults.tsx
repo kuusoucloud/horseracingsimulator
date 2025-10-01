@@ -55,27 +55,27 @@ export default function RaceResults({
 }: RaceResultsProps) {
   const [countdown, setCountdown] = useState(10);
 
-  // Auto-click "New Race" after 10 seconds
+  // Auto-click "New Race" after 15 seconds (matching server timing)
   useEffect(() => {
     if (!isOpen) return;
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          handleNewRace();
+          // Don't auto-close, let server handle new race
           return 0;
         }
         return prev - 1;
       });
-    }, 1500);
+    }, 1000); // Update every second
 
     return () => clearInterval(timer);
-  }, [isOpen, onNewRace]);
+  }, [isOpen]);
 
-  // Remove all auto-close timers - let server handle everything
+  // Set countdown to 15 seconds to match server timing
   useEffect(() => {
     if (isOpen && results.length > 0) {
-      setCountdown(10);
+      setCountdown(15); // Match server's 15-second display time
     }
   }, [isOpen, results]);
 
@@ -288,7 +288,11 @@ export default function RaceResults({
           {/* Server controlled timing display */}
           <div className="flex gap-4 justify-center">
             <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-3 rounded-lg font-bold text-lg shadow-lg">
-              🏇 Server will start new race automatically
+              {countdown > 0 ? (
+                <>🏇 New race starting in {countdown}s</>
+              ) : (
+                <>🏇 Server will start new race automatically</>
+              )}
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ import RaceController from '@/components/RaceController';
 import RaceResults from '@/components/RaceResults';
 import EloLeaderboard from '@/components/EloLeaderboard';
 import PhotoFinish from '@/components/PhotoFinish';
+import { supabase } from '@/lib/supabase';
 
 export default function Home() {
   const { syncedData, isConnected } = useRaceSync();
@@ -23,6 +24,49 @@ export default function Home() {
   // Photo Finish states
   const [showPhotoFinish, setShowPhotoFinish] = useState(false);
   const [photoFinishResults, setPhotoFinishResults] = useState<RaceResult[] | null>(null);
+
+  // Fetch horse ELO data from database and merge with race data
+  const [horseEloData, setHorseEloData] = useState<Record<string, any>>({});
+  
+  useEffect(() => {
+    const fetchHorseEloData = async () => {
+      if (!supabase || horses.length === 0) return;
+      
+      try {
+        const horseNames = horses.map(h => h.name);
+        const { data: dbHorses, error } = await supabase
+          .from('horses')
+          .select('name, elo, total_races, wins, recent_form')
+          .in('name', horseNames);
+          
+        if (error) {
+          console.error('Error fetching horse ELO data:', error);
+          return;
+        }
+        
+        const eloMap: Record<string, any> = {};
+        dbHorses?.forEach(horse => {
+          eloMap[horse.name] = horse;
+        });
+        
+        setHorseEloData(eloMap);
+        console.log('🏇 Fetched horse ELO data:', eloMap);
+      } catch (error) {
+        console.error('Error fetching horse ELO data:', error);
+      }
+    };
+    
+    fetchHorseEloData();
+  }, [horses, supabase]);
+
+  // Merge database ELO data with race horses
+  const horsesWithElo = horses.map(horse => ({
+    ...horse,
+    elo: horseEloData[horse.name]?.elo || 500, // Use database ELO or default 500
+    totalRaces: horseEloData[horse.name]?.total_races || 0,
+    wins: horseEloData[horse.name]?.wins || 0,
+    recentForm: horseEloData[horse.name]?.recent_form || []
+  }));
 
   // Handle client-side hydration
   useEffect(() => {
@@ -55,7 +99,7 @@ export default function Home() {
   }, [serverWeatherConditions]);
 
   // Convert horses array to display format (horses have position data during race)
-  const displayProgress = horses.map(horse => ({
+  const displayProgress = horsesWithElo.map(horse => ({
     id: horse.id,
     name: horse.name,
     position: horse.position || 0, // Use position directly from horse object
@@ -65,18 +109,19 @@ export default function Home() {
 
   // Debug race progress data
   useEffect(() => {
-    if (horses.length > 0 && raceState === 'racing') {
+    if (horsesWithElo.length > 0 && raceState === 'racing') {
       console.log('🏇 Horse Position Data:', {
         raceState,
         raceTimer,
-        sampleHorses: horses.slice(0, 3).map(h => ({
+        sampleHorses: horsesWithElo.slice(0, 3).map(h => ({
           id: h.id,
           name: h.name,
-          position: h.position || 0
+          position: h.position || 0,
+          elo: h.elo
         }))
       });
     }
-  }, [horses, raceState, raceTimer]);
+  }, [horsesWithElo, raceState, raceTimer]);
 
   // Update UI states based on server
   useEffect(() => {
@@ -167,13 +212,18 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-7 gap-6 mb-6">
           {/* Horse Lineup */}
           <div className="lg:col-span-2">
-            <HorseLineup horses={horses} />
+            <HorseLineup 
+              horses={horsesWithElo} 
+              onPlaceBet={handlePlaceBet}
+              selectedBet={selectedBet}
+              raceInProgress={raceState === 'racing'}
+            />
           </div>
           
           {/* Race Track */}
           <div className="lg:col-span-5">
             <RaceTrack 
-              horses={horses} 
+              horses={horsesWithElo} 
               raceState={raceState}
               progress={displayProgress}
               isRacing={raceState === 'racing'}
