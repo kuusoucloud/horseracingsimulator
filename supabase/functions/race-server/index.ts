@@ -219,10 +219,10 @@ async function startNewRace() {
   const weather = generateWeatherConditions()
   console.log('🌤️ Generated weather conditions:', weather)
   
-  // Delete existing race state
+  // Delete existing race state to ensure clean start
   await supabaseClient.from('race_state').delete().neq('id', '00000000-0000-0000-0000-000000000000')
   
-  // Create new race state
+  // Create new race state - ALWAYS start at pre-race
   const newRaceState = {
     race_state: 'pre-race',
     pre_race_timer: 10,
@@ -237,7 +237,8 @@ async function startNewRace() {
     show_photo_finish: false,
     show_results: false,
     photo_finish_results: [],
-    weather_conditions: weather
+    weather_conditions: weather,
+    last_update_time: new Date().toISOString() // Initialize timestamp
   }
   
   const { data, error } = await supabaseClient
@@ -254,6 +255,7 @@ async function startNewRace() {
   console.log('✅ New race created with weather:', weather.timeOfDay, weather.weather)
   console.log('🌤️ Weather conditions stored:', data.weather_conditions)
   console.log('🏇 Horses with ELO ratings:', horses.map(h => ({ name: h.name, elo: h.elo })))
+  console.log('⏰ Race initialized at pre-race stage with 10 second timer')
   return data
 }
 
@@ -494,16 +496,29 @@ async function updateRaceState() {
 
     // Track real seconds using timestamps instead of simple counters
     const now = Date.now()
-    const lastUpdate = raceState.last_update_time ? new Date(raceState.last_update_time).getTime() : now
+    const lastUpdate = raceState.last_update_time ? new Date(raceState.last_update_time).getTime() : (now - 1000) // Default to 1 second ago if no timestamp
     const timeDelta = (now - lastUpdate) / 1000 // Convert to seconds
     
-    // Only update timers if at least 1 real second has passed
-    const shouldUpdateTimers = timeDelta >= 1.0
+    // Only update timers if at least 0.9 seconds have passed (allow for slight timing variations)
+    const shouldUpdateTimers = timeDelta >= 0.9
 
     let updateData: any = {
       last_update_time: new Date(now).toISOString() // Always update timestamp
     }
     let message = 'Timestamp updated'
+
+    // Only update if race actually needs progression - simplified logic
+    const needsUpdate = (
+      (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) ||
+      (raceState.race_state === 'countdown' && (raceState.countdown_timer || 0) > 0) ||
+      (raceState.race_state === 'racing') ||
+      (raceState.race_state === 'finished' && (raceState.finish_timer || 0) <= 10)
+    )
+
+    if (!needsUpdate && !shouldUpdateTimers) {
+      // Race is in a stable state, no update needed
+      return
+    }
 
     // Handle PRE-RACE TIMER (10 seconds countdown)
     if (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) {
@@ -892,5 +907,33 @@ Deno.serve(async (req) => {
 })
 
 // Auto-start the race loop when the function loads
-console.log('🏇 Race server function loaded, starting autonomous race loop...')
-startRaceLoop()
+console.log('🏇 Race server function loaded, initializing clean race state...')
+
+// Force clean initialization on server startup
+async function initializeCleanRaceState() {
+  try {
+    console.log('🧹 Cleaning up any existing race state...')
+    
+    // Delete any existing race state
+    await supabaseClient
+      .from('race_state')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000')
+    
+    console.log('✅ Existing race state cleared')
+    
+    // Start a fresh race
+    await startNewRace()
+    
+    console.log('🏁 Clean race state initialized - starting autonomous loop...')
+    startRaceLoop()
+    
+  } catch (error) {
+    console.error('❌ Error initializing clean race state:', error)
+    // Still start the loop even if cleanup fails
+    startRaceLoop()
+  }
+}
+
+// Initialize clean state on startup
+initializeCleanRaceState()
