@@ -1,41 +1,27 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-}
-
-// Horse race simulation data
-interface Horse {
-  id: string;
-  name: string;
-  elo: number;
-  position: number;
-  finished: boolean;
-  finishTime?: number;
-}
-
-interface RaceProgress {
-  [horseId: string]: {
-    position: number;
-    speed: number;
-    finished: boolean;
-    finishTime?: number;
-  }
-}
-
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests first
+  console.log(`⏰ Timer function called with ${req.method}`)
+
+  // Handle CORS preflight - MUST be first
   if (req.method === 'OPTIONS') {
-    console.log('🔄 Handling OPTIONS preflight request')
-    return new Response(null, { 
+    console.log('🔄 Timer CORS preflight')
+    return new Response(null, {
       status: 200,
-      headers: corsHeaders
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      },
     })
   }
 
-  console.log(`📡 Received ${req.method} request to race-timer function`)
+  // Standard headers for all responses
+  const responseHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Content-Type': 'application/json',
+  }
 
   try {
     const supabaseClient = createClient(
@@ -48,253 +34,116 @@ Deno.serve(async (req) => {
       .from('race_state')
       .select('*')
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (fetchError) {
-      console.error('Error fetching race state:', fetchError)
+      console.error('❌ Error fetching race state:', fetchError)
       return new Response(
         JSON.stringify({ error: 'Failed to fetch race state' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 500, headers: responseHeaders }
       )
     }
 
     if (!raceState) {
       return new Response(
         JSON.stringify({ message: 'No race state found' }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 200, headers: responseHeaders }
       )
     }
 
-    let updateData: any = {}
-    let message = 'No update needed'
+    let updates: any = {}
+    let message = 'Timer tick'
 
-    // Handle PRE-RACE TIMER (10 seconds countdown)
+    // Handle different race states
     if (raceState.race_state === 'pre-race' && raceState.pre_race_timer > 0) {
-      const newTimer = raceState.pre_race_timer - 1
-      console.log(`⏰ Pre-race timer: ${raceState.pre_race_timer} -> ${newTimer}`)
-
-      if (newTimer > 0) {
-        updateData = { 
-          pre_race_timer: newTimer,
-          timer_owner: 'server'
-        }
-        message = `Pre-race timer updated to ${newTimer}`
-      } else {
-        // Timer reached 0, start countdown phase
-        console.log('🏁 Pre-race timer finished - starting countdown phase')
-        updateData = { 
-          pre_race_timer: 0,
-          race_state: 'countdown',
-          countdown_timer: 3, // Shorter countdown for faster action
-          timer_owner: 'server'
-        }
-        message = 'Starting countdown phase'
-      }
-    }
-    // Handle COUNTDOWN TIMER (3 seconds before race starts)
-    else if (raceState.race_state === 'countdown') {
-      const currentCountdown = raceState.countdown_timer || 3
-      const newCountdown = currentCountdown - 1
-      console.log(`⏰ Countdown timer: ${currentCountdown} -> ${newCountdown}`)
-
-      if (newCountdown > 0) {
-        updateData = { 
-          countdown_timer: newCountdown,
-          timer_owner: 'server'
-        }
-        message = `Countdown timer updated to ${newCountdown}`
-      } else {
-        // Countdown finished, start race with initial horse positions
-        console.log('🏇 Countdown finished - starting race!')
-        const initialRaceProgress: RaceProgress = {}
-        
-        // Initialize all horses at position 0
-        const horses = raceState.horses || []
-        horses.forEach((horse: any) => {
-          initialRaceProgress[horse.id] = {
-            position: 0,
-            speed: 0,
-            finished: false
-          }
-        })
-
-        updateData = { 
-          countdown_timer: 0,
-          race_state: 'racing',
-          race_start_time: new Date().toISOString(),
-          race_timer: 1, // Start at 1 second instead of 0
-          race_progress: initialRaceProgress,
-          timer_owner: 'server'
-        }
-        message = 'Race started!'
-      }
-    }
-    // Handle RACE SIMULATION (during race)
-    else if (raceState.race_state === 'racing') {
-      const currentRaceTimer = raceState.race_timer || 0
-      const newRaceTimer = currentRaceTimer + 1 // Increment race timer
-      console.log(`🏇 RACE PROGRESS: Timer ${currentRaceTimer} -> ${newRaceTimer}`)
-
-      // Get current race progress or initialize
-      let raceProgress: RaceProgress = raceState.race_progress || {}
-      const horses = raceState.horses || []
+      const newTimer = Math.max(0, raceState.pre_race_timer - 1)
+      updates.pre_race_timer = newTimer
       
-      // Initialize race progress if empty
-      if (Object.keys(raceProgress).length === 0) {
-        horses.forEach((horse: any) => {
-          raceProgress[horse.id] = {
-            position: 0,
-            speed: 0,
-            finished: false
-          }
-        })
+      if (newTimer === 0) {
+        updates.race_state = 'countdown'
+        updates.countdown_timer = 5
+        message = 'Pre-race complete, starting countdown'
+      } else {
+        message = `Pre-race timer: ${newTimer}s`
       }
-
-      // Simulate race progress for each horse
-      let allFinished = true
-      const finishedHorses: Array<{id: string, name: string, finishTime: number}> = []
-
-      horses.forEach((horse: any) => {
-        const horseProgress = raceProgress[horse.id]
-        if (!horseProgress || horseProgress.finished) {
-          return // Skip finished horses
-        }
-
-        const currentPosition = horseProgress.position || 0
-        const horseELO = horse.elo || 1200
+    } else if (raceState.race_state === 'countdown' && raceState.countdown_timer > 0) {
+      const newCountdown = Math.max(0, raceState.countdown_timer - 1)
+      updates.countdown_timer = newCountdown
+      
+      if (newCountdown === 0) {
+        updates.race_state = 'racing'
+        updates.race_start_time = new Date().toISOString()
+        updates.race_timer = 0
+        message = 'Race started!'
+      } else {
+        message = `Countdown: ${newCountdown}s`
+      }
+    } else if (raceState.race_state === 'racing') {
+      const newRaceTimer = (raceState.race_timer || 0) + 1
+      updates.race_timer = newRaceTimer
+      
+      // Simulate race progress
+      const horses = raceState.horses || []
+      const updatedHorses = horses.map((horse: any) => {
+        if (horse.finishTime) return horse // Already finished
         
-        // Convert ELO to speed (higher ELO = faster)
-        const eloNormalized = Math.max(0, Math.min(1, (horseELO - 400) / 1700))
-        const baseSpeed = 0.8 + (eloNormalized * 1.2) // Speed range: 0.8 - 2.0 per second
+        const progress = Math.min(1200, horse.position + (Math.random() * 30 + 10))
+        const finished = progress >= 1200
         
-        // Add randomness for exciting races
-        const randomFactor = 0.7 + Math.random() * 0.6 // 0.7x to 1.3x
-        const currentSpeed = baseSpeed * randomFactor
-        
-        // Calculate new position
-        const newPosition = Math.min(currentPosition + currentSpeed, 1200)
-        
-        // Check if horse finished
-        if (newPosition >= 1200 && !horseProgress.finished) {
-          raceProgress[horse.id] = {
-            position: 1200,
-            speed: currentSpeed,
-            finished: true,
-            finishTime: newRaceTimer
-          }
-          finishedHorses.push({
-            id: horse.id,
-            name: horse.name,
-            finishTime: newRaceTimer
-          })
-          console.log(`🏁 ${horse.name} finished at ${newRaceTimer}s`)
-        } else {
-          raceProgress[horse.id] = {
-            position: newPosition,
-            speed: currentSpeed,
-            finished: false
-          }
-          allFinished = false
+        return {
+          ...horse,
+          position: progress,
+          finishTime: finished ? newRaceTimer : null,
+          placement: finished ? null : null // Will be calculated later
         }
       })
-
-      updateData = { 
-        race_timer: newRaceTimer,
-        race_progress: raceProgress,
-        timer_owner: 'server'
-      }
-      message = `Race progressing - ${newRaceTimer}s elapsed`
-
-      // Check if race should finish
-      if (allFinished || newRaceTimer >= 80) {
-        console.log(`🏁 Race finishing - All finished: ${allFinished}, Timer: ${newRaceTimer}s`)
-        updateData.race_state = 'finished'
-        message = allFinished ? 'All horses finished!' : 'Race auto-finished after 80 seconds'
+      
+      // Check if race is complete
+      const finishedHorses = updatedHorses.filter((h: any) => h.finishTime)
+      if (finishedHorses.length >= horses.length) {
+        // Sort by finish time and assign placements
+        const sortedHorses = [...updatedHorses].sort((a: any, b: any) => a.finishTime - b.finishTime)
+        sortedHorses.forEach((horse: any, index: number) => {
+          horse.placement = index + 1
+        })
         
-        // Create final results sorted by finish time and position
-        const results = horses.map((horse: any, index: number) => {
-          const progress = raceProgress[horse.id]
-          return {
-            id: horse.id,
-            name: horse.name,
-            position: progress?.position || 0,
-            finishTime: progress?.finishTime || newRaceTimer,
-            finished: progress?.finished || false,
-            lane: index + 1,
-            odds: horse.odds || 2.0,
-            horse: horse
-          }
-        }).sort((a, b) => {
-          // Sort by: finished first, then by finish time, then by position
-          if (a.finished && !b.finished) return -1
-          if (!a.finished && b.finished) return 1
-          if (a.finished && b.finished) return a.finishTime - b.finishTime
-          return b.position - a.position // Higher position = better placement for unfinished
-        }).map((result, index) => ({
-          ...result,
-          placement: index + 1,
-          gap: index === 0 ? "0.00s" : `+${(result.finishTime - results[0].finishTime).toFixed(2)}s`
-        }))
-        
-        updateData.race_results = results
-        console.log('🏆 Final results:', results.map(r => `${r.placement}. ${r.name} (${r.finishTime}s)`))
+        updates.horses = sortedHorses
+        updates.race_state = 'finished'
+        updates.race_results = sortedHorses.slice(0, 3) // Top 3
+        updates.show_results = true
+        message = 'Race finished!'
+      } else {
+        updates.horses = updatedHorses
+        message = `Race progress: ${newRaceTimer}s`
       }
     }
 
-    // Apply updates if any
-    if (Object.keys(updateData).length > 0) {
-      console.log(`🔄 Applying updates:`, updateData)
-      
+    // Update race state if there are changes
+    if (Object.keys(updates).length > 0) {
       const { error: updateError } = await supabaseClient
         .from('race_state')
-        .update(updateData)
+        .update(updates)
         .eq('id', raceState.id)
 
       if (updateError) {
-        console.error('Error updating race state:', updateError)
+        console.error('❌ Error updating race state:', updateError)
         return new Response(
           JSON.stringify({ error: 'Failed to update race state' }),
-          { 
-            status: 500, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
+          { status: 500, headers: responseHeaders }
         )
       }
-
-      console.log('✅ Race state updated successfully')
     }
 
     return new Response(
-      JSON.stringify({ 
-        message,
-        updates: updateData,
-        current_state: raceState.race_state,
-        current_timer: raceState.pre_race_timer,
-        countdown_timer: raceState.countdown_timer,
-        race_timer: raceState.race_timer,
-        new_race_timer: updateData.race_timer,
-        race_progress: raceState.race_progress
-      }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ message, updates: Object.keys(updates) }),
+      { status: 200, headers: responseHeaders }
     )
 
   } catch (error) {
-    console.error('Server error:', error)
+    console.error('❌ Timer error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ error: 'Timer function error', details: error.message }),
+      { status: 500, headers: responseHeaders }
     )
   }
 })

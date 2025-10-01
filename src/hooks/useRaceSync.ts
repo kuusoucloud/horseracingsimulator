@@ -24,10 +24,36 @@ interface RaceStateRow {
 
 type SyncedRaceData = Omit<RaceStateRow, 'id' | 'created_at' | 'updated_at'>;
 
+// Generate random horses client-side as fallback
+function generateRandomHorses(count: number = 8): Horse[] {
+  const names = [
+    "Thunder Bolt", "Lightning Strike", "Storm Chaser", "Wind Runner",
+    "Fire Spirit", "Golden Arrow", "Silver Bullet", "Midnight Express",
+    "Desert Storm", "Ocean Wave", "Mountain Peak", "Forest Fire"
+  ];
+  
+  const colors = ["#8B4513", "#654321", "#D2691E", "#A0522D", "#F4A460", "#DEB887"];
+  
+  return Array.from({ length: count }, (_, i) => ({
+    id: `horse-${i + 1}`,
+    name: names[i] || `Horse ${i + 1}`,
+    color: colors[i % colors.length],
+    position: 0,
+    speed: Math.random() * 0.5 + 0.5,
+    stamina: Math.random() * 0.5 + 0.5,
+    acceleration: Math.random() * 0.5 + 0.5,
+    elo: Math.floor(Math.random() * 400) + 1200,
+    odds: Math.random() * 8 + 2,
+    lane: i + 1,
+    finishTime: null,
+    placement: null
+  }));
+}
+
 export function useRaceSync() {
   const [syncedData, setSyncedData] = useState<SyncedRaceData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [clientHorses, setClientHorses] = useState<Horse[]>([]); // Client-side horse cache
+  const [clientHorses, setClientHorses] = useState<Horse[]>([]);
   const hasStartedServer = useRef(false);
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const timerInterval = useRef<NodeJS.Timeout | null>(null);
@@ -43,33 +69,88 @@ export function useRaceSync() {
     }
   }, []);
 
-  // Start the autonomous race server when component mounts
+  // Start the race server - try edge function first, fallback to client-side
   useEffect(() => {
     const startRaceServer = async () => {
       if (!supabase || hasStartedServer.current) return;
       
       try {
-        console.log('🚀 Starting autonomous race server...');
+        console.log('🚀 Starting race server...');
         hasStartedServer.current = true;
         
+        // Try the correct function name - use the full slug
         const { data, error } = await supabase.functions.invoke('supabase-functions-race-server', {
           body: {},
         });
 
         if (error) {
-          console.error('❌ Failed to start race server:', error);
+          console.error('❌ Edge function failed, starting client-side race:', error);
+          // Fallback: Create race state directly in database
+          await createClientSideRace();
         } else {
           console.log('✅ Race server started:', data);
         }
       } catch (error) {
-        console.error('❌ Error starting race server:', error);
+        console.error('❌ Error starting race server, falling back to client-side:', error);
+        await createClientSideRace();
+      }
+    };
+
+    const createClientSideRace = async () => {
+      try {
+        console.log('🏇 Creating client-side race...');
+        
+        // Generate horses client-side
+        const newHorses = generateRandomHorses(8);
+        setClientHorses(newHorses);
+        
+        // Create race state in database
+        const raceData = {
+          race_state: 'pre-race' as const,
+          horses: newHorses,
+          race_progress: {},
+          pre_race_timer: 10,
+          countdown_timer: 0,
+          race_timer: 0,
+          race_start_time: null,
+          race_results: [],
+          show_photo_finish: false,
+          show_results: false,
+          photo_finish_results: [],
+          weather_conditions: {
+            timeOfDay: "day",
+            weather: "clear",
+            skyColor: "#87ceeb",
+            ambientIntensity: 0.4,
+            directionalIntensity: 1.0,
+            trackColor: "#8B4513",
+            grassColor: "#32cd32"
+          },
+          timer_owner: 'client'
+        };
+
+        // Clear any existing race
+        await supabase.from('race_state').delete().neq('id', '');
+        
+        // Insert new race
+        const { error: insertError } = await supabase
+          .from('race_state')
+          .insert([raceData]);
+
+        if (insertError) {
+          console.error('❌ Error creating client-side race:', insertError);
+        } else {
+          console.log('✅ Client-side race created successfully');
+        }
+      } catch (error) {
+        console.error('❌ Error in createClientSideRace:', error);
       }
     };
 
     startRaceServer();
   }, []);
 
-  // Timer function to call race-timer edge function
+  // Timer function - now calls race-timer with correct name
   const callRaceTimer = useCallback(async () => {
     if (!supabase) return;
 
@@ -144,7 +225,7 @@ export function useRaceSync() {
           .select('*')
           .order('created_at', { ascending: false })
           .limit(1)
-          .maybeSingle(); // Use maybeSingle instead of single
+          .maybeSingle();
 
         if (error) {
           console.error('Error loading race state:', error);
@@ -155,7 +236,6 @@ export function useRaceSync() {
           console.log('🏇 Loaded existing race state:', data);
           const raceData = data as SyncedRaceData;
           
-          // Initialize client horse cache
           if (raceData.horses && raceData.horses.length > 0) {
             setClientHorses([...raceData.horses]);
             lastRaceId.current = raceData.horses.map(h => h.id).join('-');
@@ -217,7 +297,6 @@ export function useRaceSync() {
               if (payload.new && typeof payload.new === 'object') {
                 const raceData = payload.new as SyncedRaceData;
                 
-                // Update client horse cache if new horses detected
                 if (raceData.horses && raceData.horses.length > 0) {
                   const currentRaceId = raceData.horses.map(h => h.id).join('-');
                   if (currentRaceId !== lastRaceId.current) {
@@ -227,7 +306,6 @@ export function useRaceSync() {
                   }
                 }
                 
-                // Use cached horses if server horses are missing
                 const finalRaceData = {
                   ...raceData,
                   horses: raceData.horses && raceData.horses.length > 0 ? raceData.horses : clientHorses

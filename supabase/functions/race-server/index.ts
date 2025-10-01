@@ -30,34 +30,35 @@ function generateWeatherConditions() {
 }
 
 Deno.serve(async (req) => {
-  console.log(`📡 Received ${req.method} request to race-server function`)
+  console.log(`📡 Received ${req.method} request`)
 
-  // CORS headers - define once and reuse
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Content-Type': 'application/json'
-  }
-
-  // Handle CORS preflight - return immediately with 200
+  // Handle CORS preflight - MUST be first
   if (req.method === 'OPTIONS') {
-    console.log('🔄 CORS preflight - returning 200')
-    return new Response('', { 
+    console.log('🔄 CORS preflight')
+    return new Response(null, {
       status: 200,
-      headers
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      },
     })
   }
 
+  // Standard headers for all responses
+  const responseHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Content-Type': 'application/json',
+  }
+
   try {
-    console.log('🔧 Initializing Supabase client...')
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    console.log('🔍 Checking for existing race state...')
-    // Check if there's an existing race state
+    // Check for existing race state
     const { data: existingRace, error: fetchError } = await supabaseClient
       .from('race_state')
       .select('*')
@@ -68,7 +69,7 @@ Deno.serve(async (req) => {
       console.error('❌ Error fetching race state:', fetchError)
       return new Response(
         JSON.stringify({ error: 'Failed to fetch race state', details: fetchError.message }),
-        { status: 500, headers }
+        { status: 500, headers: responseHeaders }
       )
     }
 
@@ -87,14 +88,13 @@ Deno.serve(async (req) => {
       const weatherConditions = generateWeatherConditions()
       
       console.log('🏇 Generated horses:', horsesWithOdds.map(h => `${h.name} (ELO: ${h.elo}, Odds: ${h.odds})`))
-      console.log('🌤️ Weather conditions:', weatherConditions)
 
-      // Create new race state with proper initialization
+      // Create new race state
       const newRaceData = {
         race_state: 'pre-race' as const,
         horses: horsesWithOdds,
         race_progress: {},
-        pre_race_timer: 10, // Start with 10 second timer
+        pre_race_timer: 10,
         countdown_timer: 0,
         race_timer: 0,
         race_start_time: null,
@@ -108,7 +108,6 @@ Deno.serve(async (req) => {
 
       // Delete old race state if it exists
       if (existingRace) {
-        console.log('🗑️ Deleting old race state...')
         await supabaseClient
           .from('race_state')
           .delete()
@@ -116,7 +115,6 @@ Deno.serve(async (req) => {
       }
 
       // Insert new race state
-      console.log('💾 Inserting new race state...')
       const { data: newRace, error: insertError } = await supabaseClient
         .from('race_state')
         .insert([newRaceData])
@@ -127,7 +125,7 @@ Deno.serve(async (req) => {
         console.error('❌ Error creating new race:', insertError)
         return new Response(
           JSON.stringify({ error: 'Failed to create new race', details: insertError.message }),
-          { status: 500, headers }
+          { status: 500, headers: responseHeaders }
         )
       }
 
@@ -142,7 +140,7 @@ Deno.serve(async (req) => {
           state: 'pre-race',
           timer: 10
         }),
-        { status: 200, headers }
+        { status: 200, headers: responseHeaders }
       )
     } else {
       console.log('🏇 Race already exists:', existingRace.race_state)
@@ -154,7 +152,7 @@ Deno.serve(async (req) => {
           state: existingRace.race_state,
           timer: existingRace.pre_race_timer
         }),
-        { status: 200, headers }
+        { status: 200, headers: responseHeaders }
       )
     }
 
@@ -162,12 +160,7 @@ Deno.serve(async (req) => {
     console.error('❌ Server error:', error)
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: error.message }),
-      { status: 500, headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Content-Type': 'application/json'
-      }}
+      { status: 500, headers: responseHeaders }
     )
   }
 })
