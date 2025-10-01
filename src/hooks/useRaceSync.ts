@@ -42,7 +42,7 @@ export function useRaceSync() {
     const initializeRaceSystem = async () => {
       try {
         // Start the race server once
-        if (!serverStarted.current) {
+        if (!serverStarted.current && supabase) {
           console.log('🚀 Starting race server...');
           serverStarted.current = true;
           
@@ -52,18 +52,20 @@ export function useRaceSync() {
         }
 
         // Load current race state
-        const { data: currentRace, error } = await supabase
-          .from('race_state')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        if (supabase) {
+          const { data: currentRace, error } = await supabase
+            .from('race_state')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        if (error) {
-          console.error('❌ Error loading race:', error);
-        } else if (currentRace) {
-          console.log('🏇 Loaded race:', currentRace.race_state);
-          setRaceData(currentRace);
+          if (error) {
+            console.error('❌ Error loading race:', error);
+          } else if (currentRace) {
+            console.log('🏇 Loaded race:', currentRace.race_state);
+            setRaceData(currentRace);
+          }
         }
 
         setIsConnected(true);
@@ -120,9 +122,11 @@ export function useRaceSync() {
     
     timerInterval.current = setInterval(async () => {
       try {
-        await supabase.functions.invoke('supabase-functions-race-timer', {
-          body: {},
-        });
+        if (supabase) {
+          await supabase.functions.invoke('supabase-functions-race-timer', {
+            body: {},
+          });
+        }
       } catch (error) {
         console.error('❌ Timer error:', error);
       }
