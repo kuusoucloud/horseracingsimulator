@@ -73,7 +73,12 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
 
   useEffect(() => {
     refreshLeaderboard();
-  }, [refreshTrigger]);
+    
+    // Refresh every 5 seconds instead of constantly
+    const interval = setInterval(refreshLeaderboard, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Set up real-time subscription for horse updates
   useEffect(() => {

@@ -120,9 +120,9 @@ export function useRaceSync() {
 
     loadRaceState();
 
-    // Start moderate polling every 1000ms (1 second) to match server updates
-    console.log('🔄 Starting polling every 1000ms to match server timing...');
-    pollingInterval.current = setInterval(pollRaceState, 1000);
+    // Reduce polling to every 2 seconds to prevent lag and flickering
+    console.log('🔄 Starting polling every 2000ms for stable sync...');
+    pollingInterval.current = setInterval(pollRaceState, 2000);
 
     return () => {
       if (pollingInterval.current) {
