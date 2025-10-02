@@ -247,7 +247,7 @@ function FollowCamera({
   isRacing: boolean;
   raceState: string;
 }) {
-  // Client-side smooth camera position with interpolation
+  // Client-side smooth camera position with faster interpolation
   const [smoothCameraX, setSmoothCameraX] = useState(START_X);
   const [targetCameraX, setTargetCameraX] = useState(START_X);
   const lastServerUpdate = useRef<number>(0);
@@ -311,7 +311,7 @@ function FollowCamera({
     }
   }, [progress, isRacing, raceState, targetCameraX, smoothCameraX]);
 
-  // Client-side smooth interpolation
+  // Client-side smooth interpolation - much faster for racing
   useFrame(({ camera }) => {
     if (!camera) return;
 
@@ -319,8 +319,8 @@ function FollowCamera({
     const timeSinceUpdate = now - lastServerUpdate.current;
     const interpolationTime = now - interpolationStartTime.current;
     
-    // Ultra-smooth interpolation over 500ms
-    const interpolationDuration = 500; // ms
+    // Ultra-smooth interpolation - faster during racing
+    const interpolationDuration = isRacing ? 200 : 500; // Faster camera during racing
     const progress = Math.min(interpolationTime / interpolationDuration, 1);
     
     // Use easing function for even smoother movement
@@ -475,10 +475,10 @@ function SmoothHorse({
       raceStartTime !== null ? clock.getElapsedTime() - raceStartTime : 0;
     setElapsedTime(raceElapsedTime);
 
-    // Use consistent interpolation speed throughout - no speed changes
-    const interpolationSpeed = 1.0;
+    // Much faster interpolation during racing for real-time feel
+    const interpolationSpeed = isRacing ? 8.0 : 1.0; // 8x faster during racing
 
-    // Calculate desired position with consistent speed
+    // Calculate desired position with faster speed during racing
     let desiredX =
       currentX + (targetX - currentX) * Math.min(delta * interpolationSpeed, 1);
     let desiredZ =
@@ -522,24 +522,24 @@ function SmoothHorse({
       }
     }
 
-    // No collision detection - just smooth movement
+    // Update positions with faster interpolation
     setCurrentX(desiredX);
     setCurrentZ(desiredZ);
 
     // Update group position
     groupRef.current.position.set(desiredX, 1, desiredZ);
 
-    // Galloping animation - body bobbing up and down
+    // Galloping animation - body bobbing up and down (faster during racing)
     if (horseBodyRef.current && isRacing) {
       const time = clock.getElapsedTime();
-      const speed = 8; // Galloping speed
-      const amplitude = 0.15; // How much the horse bobs up and down
+      const speed = 12; // Faster galloping animation during racing
+      const amplitude = 0.2; // Slightly more pronounced bobbing
       horseBodyRef.current.position.y =
         Math.sin(time * speed + index) * amplitude;
 
       // Slight forward/backward motion for galloping effect
       horseBodyRef.current.position.x =
-        Math.sin(time * speed * 0.5 + index) * 0.05;
+        Math.sin(time * speed * 0.5 + index) * 0.08;
     } else if (horseBodyRef.current) {
       // Return to neutral position when not racing
       horseBodyRef.current.position.y = THREE.MathUtils.lerp(

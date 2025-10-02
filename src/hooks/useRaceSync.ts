@@ -26,7 +26,13 @@ export function useRaceSync() {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Client-side interpolated positions for smooth movement
+  const [interpolatedHorses, setInterpolatedHorses] = useState<Horse[]>([]);
+  const lastServerUpdate = useRef<number>(0);
+  const serverUpdateInterval = useRef<number>(1000); // 1 second server updates
+  
   const timerInterval = useRef<NodeJS.Timeout | null>(null);
+  const interpolationInterval = useRef<NodeJS.Timeout | null>(null);
   const subscription = useRef<any>(null);
 
   // Initialize and load current race state
@@ -128,6 +134,7 @@ export function useRaceSync() {
               timer_owner: dbRow.timer_owner || undefined,
             };
             setRaceData(raceDataFromDB);
+            lastServerUpdate.current = Date.now();
           }
         }
       )
@@ -142,7 +149,57 @@ export function useRaceSync() {
     };
   }, [isConnected]);
 
-  // Timer that calls database function directly (no edge functions!)
+  // Client-side interpolation for smooth horse movement during racing
+  useEffect(() => {
+    if (!raceData || raceData.race_state !== 'racing') {
+      // Clear interpolation when not racing
+      if (interpolationInterval.current) {
+        clearInterval(interpolationInterval.current);
+        interpolationInterval.current = null;
+      }
+      setInterpolatedHorses(raceData?.horses || []);
+      return;
+    }
+
+    // Start client-side interpolation at 60fps during racing
+    console.log('🏃‍♂️ Starting client-side interpolation for smooth movement...');
+    
+    interpolationInterval.current = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastUpdate = now - lastServerUpdate.current;
+      const interpolationProgress = Math.min(timeSinceLastUpdate / serverUpdateInterval.current, 1);
+      
+      if (raceData && raceData.horses) {
+        const smoothHorses = raceData.horses.map((horse: any) => {
+          if (!horse || typeof horse.position !== 'number') return horse;
+          
+          // Calculate expected position based on horse's speed and time elapsed
+          const baseSpeed = (horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2;
+          const currentSpeed = baseSpeed * (0.85 + Math.random() * 0.3);
+          
+          // Interpolate position forward based on time since last server update
+          const interpolatedDistance = (currentSpeed * timeSinceLastUpdate) / 1000;
+          const smoothPosition = Math.min(1200, horse.position + interpolatedDistance);
+          
+          return {
+            ...horse,
+            position: smoothPosition
+          };
+        });
+        
+        setInterpolatedHorses(smoothHorses);
+      }
+    }, 16); // ~60fps for smooth interpolation
+
+    return () => {
+      if (interpolationInterval.current) {
+        clearInterval(interpolationInterval.current);
+        interpolationInterval.current = null;
+      }
+    };
+  }, [raceData, lastServerUpdate.current]);
+
+  // Server timer that calls database function (keep at 1 second for sync)
   useEffect(() => {
     if (!supabase || !isConnected) return;
 
@@ -161,7 +218,7 @@ export function useRaceSync() {
       } catch (error) {
         console.error('❌ Timer error:', error);
       }
-    }, 1000);
+    }, 1000); // Keep server updates at 1 second for synchronization
 
     return () => {
       if (timerInterval.current) {
@@ -172,8 +229,12 @@ export function useRaceSync() {
 
   // Helper functions for components
   const getCurrentHorses = useCallback(() => {
+    // Return interpolated horses during racing for smooth movement
+    if (raceData?.race_state === 'racing' && interpolatedHorses.length > 0) {
+      return interpolatedHorses;
+    }
     return raceData?.horses || [];
-  }, [raceData]);
+  }, [raceData, interpolatedHorses]);
 
   const getRaceState = useCallback(() => {
     return raceData?.race_state || 'pre-race';
