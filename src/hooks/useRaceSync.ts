@@ -169,6 +169,7 @@ export function useRaceSync() {
 
     console.log('🏇 Starting independent smooth movement system...');
     console.log(`🏇 Initial horse count: ${smoothHorses.length}`);
+    console.log('🏇 Horse details:', smoothHorses.map(h => ({ name: h.name, id: h.id, velocity: h.velocity })));
     let lastUpdateTime = Date.now();
 
     const smoothMovementUpdate = () => {
@@ -203,13 +204,18 @@ export function useRaceSync() {
             const speedVariation = 0.85 + (seedValue * 0.3);
             velocity = realisticSpeed * speedVariation;
             
-            console.log(`🏇 Horse ${horse.name || horse.id || `Horse ${index + 1}`} velocity: ${velocity.toFixed(2)} m/s (index: ${index})`);
+            console.log(`🏇 Horse ${horse.name || horse.id || `Horse ${index + 1}`} velocity: ${velocity.toFixed(2)} m/s (index: ${index}, baseSpeed: ${baseSpeed.toFixed(2)}, seedValue: ${seedValue.toFixed(3)})`);
           }
           
           const currentPosition = horse.position || 0;
           
           // Calculate new position based on velocity and time
           const newPosition = Math.min(1200, currentPosition + (velocity * deltaTime));
+          
+          // Log position updates for debugging
+          if (index < 3) { // Only log first 3 horses to avoid spam
+            console.log(`🏇 Horse ${index + 1} (${horse.name}): ${currentPosition.toFixed(1)}m → ${newPosition.toFixed(1)}m (velocity: ${velocity.toFixed(2)} m/s)`);
+          }
           
           // ALWAYS update position and velocity to ensure movement
           hasChanges = true;
