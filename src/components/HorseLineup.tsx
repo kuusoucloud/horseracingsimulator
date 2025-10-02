@@ -263,42 +263,10 @@ export default function HorseLineup({
 
       <div className="relative z-10 p-3 h-full flex flex-col">
         <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-xl border border-white/10 shadow-2xl p-4 h-full flex flex-col">
-          {/* Header showing sorting method */}
-          <div className="mb-2 text-center">
-            <p className="text-xs text-white/60">
-              🏆 Sorted by Odds (Favorites → Longshots)
-            </p>
-          </div>
-          
           {/* All 8 horses in a fixed height container - sorted by odds (lowest first) */}
           <div className="flex-1 flex flex-col justify-between min-h-0 gap-1">
             {horseCards}
           </div>
-
-          <motion.div
-            className="mt-2 pt-2 border-t border-white/10"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
-          >
-            {selectedBet ? (
-              <div className="text-center">
-                <Badge className="mb-1 bg-emerald-500/30 border-emerald-400/50 text-emerald-300 px-2 py-1 text-xs font-bold">
-                  ✅ Your Selection
-                </Badge>
-                <p className="font-bold text-white text-sm">
-                  {selectedBet.horseName}
-                </p>
-                <p className="text-emerald-300 text-xs">
-                  ${selectedBet.amount} @ {selectedBet.odds.toFixed(2)}:1
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs text-white/60 text-center">
-                {raceInProgress ? "🏁 Race in progress..." : "🏇 Watch the race"}
-              </p>
-            )}
-          </motion.div>
         </div>
       </div>
     </div>
