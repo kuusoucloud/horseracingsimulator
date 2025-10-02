@@ -44,7 +44,6 @@ export function useRaceSync() {
   const lastServerUpdate = useRef<number>(0);
   const animationFrameRef = useRef<number>();
   
-  const timerInterval = useRef<NodeJS.Timeout | null>(null);
   const subscription = useRef<any>(null);
 
   // Sync waiting state with ref
@@ -114,7 +113,7 @@ export function useRaceSync() {
             }
             lastServerUpdate.current = Date.now();
           } else {
-            console.log('🏇 No race found, database will create one on first tick');
+            console.log('🏇 No race found, server will create one automatically');
             setIsWaitingForNewRace(false);
           }
         }
@@ -132,11 +131,11 @@ export function useRaceSync() {
     initializeRaceSystem();
   }, []);
 
-  // Set up real-time subscription
+  // Set up real-time subscription - CLIENT IS READ-ONLY
   useEffect(() => {
     if (!supabase || !isConnected) return;
 
-    console.log('📡 Setting up real-time subscription...');
+    console.log('📡 Setting up real-time subscription (READ-ONLY)...');
     
     subscription.current = supabase
       .channel('race_updates')
@@ -350,34 +349,6 @@ export function useRaceSync() {
     }
   }, [raceData?.race_state, raceData?.horses, smoothHorses.length]);
 
-  // OPTIMIZED server timer - Call the correct race tick function
-  useEffect(() => {
-    if (!supabase || !isConnected) return;
-
-    console.log('⚡ Starting race timer with update_race_tick...');
-    
-    timerInterval.current = setInterval(async () => {
-      try {
-        // Call the correct database function that waits for all horses
-        if (supabase) {
-          const { error } = await supabase.rpc('update_race_tick');
-          
-          if (error) {
-            console.error('❌ Update error:', error);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Timer error:', error);
-      }
-    }, 100); // 100ms = 10fps server updates
-
-    return () => {
-      if (timerInterval.current) {
-        clearInterval(timerInterval.current);
-      }
-    };
-  }, [isConnected]);
-
   // OPTIMIZED helper functions for components
   const getCurrentHorses = useCallback(() => {
     // Return smooth horses during racing, regular horses otherwise
@@ -534,7 +505,7 @@ export function useRaceSync() {
     
     // Legacy compatibility (for existing components)
     syncedData: raceData,
-    updateRaceState: () => console.log('🚫 Client is read-only'),
-    initializeNewRace: () => console.log('🚫 Database handles race creation'),
+    updateRaceState: () => console.log('🚫 Client is read-only - server handles all race logic'),
+    initializeNewRace: () => console.log('🚫 Server handles race creation automatically'),
   };
 }
