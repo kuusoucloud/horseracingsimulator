@@ -245,6 +245,13 @@ async function runRaceTick(supabase: any) {
     
     if (finishAge >= 15) {
       console.log('🆕 15 seconds elapsed, creating new race now...');
+      
+      // Delete the old finished race first to ensure clean state
+      await supabase
+        .from('race_state')
+        .delete()
+        .eq('id', currentRace.id);
+      
       await createNewRace(supabase);
       console.log('✅ New race creation attempt completed');
     }
