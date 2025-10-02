@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Horse, RaceResult, Bet } from '@/types/horse';
 import { useRaceSync } from '@/hooks/useRaceSync';
-import { generateRandomHorses, updateEloRatings, updateHorseStats, resetAllEloRatings } from '@/data/horses';
+import { generateRandomHorses, updateEloRatings, updateHorseStats } from '@/data/horses';
 import HorseLineup from '@/components/HorseLineup';
 import RaceTrack from '@/components/RaceTrack';
 import RaceController from '@/components/RaceController';
@@ -194,17 +194,6 @@ export default function Home() {
     console.log('🔄 All ELO ratings reset to 500!');
   };
 
-  // Betting handler (placeholder - not used in server-controlled version)
-  const handlePlaceBet = (horse: Horse, amount: number) => {
-    console.log('🎰 Bet placed:', { horseId: horse.id, horseName: horse.name, amount });
-    setSelectedBet({ 
-      horseId: horse.id, 
-      horseName: horse.name,
-      amount,
-      odds: horse.odds
-    });
-  };
-
   // Don't render until client-side hydration is complete
   if (!isClient) {
     return (
@@ -231,7 +220,7 @@ export default function Home() {
       </div>
       
       <div className="max-w-7xl mx-auto">
-        {/* Top Row: Horse Lineup + Race Track */}
+        {/* Main Race Interface */}
         <div className="grid grid-cols-1 lg:grid-cols-7 gap-6 mb-6">
           {/* Horse Lineup */}
           <div className="lg:col-span-2">
