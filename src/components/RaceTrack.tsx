@@ -237,7 +237,7 @@ function RainEffect({ isRaining }: { isRaining: boolean }) {
   );
 }
 
-// Camera that follows the leading horse with client-side smoothing
+// Camera that follows the leading horse with ultra-smooth client-side interpolation
 function FollowCamera({
   progress,
   isRacing,
@@ -247,12 +247,10 @@ function FollowCamera({
   isRacing: boolean;
   raceState: string;
 }) {
-  // Client-side smooth camera position with faster interpolation
+  // Ultra-smooth camera position with requestAnimationFrame-based interpolation
   const [smoothCameraX, setSmoothCameraX] = useState(START_X);
   const [targetCameraX, setTargetCameraX] = useState(START_X);
-  const lastServerUpdate = useRef<number>(0);
-  const interpolationStartTime = useRef<number>(0);
-  const interpolationStartX = useRef<number>(START_X);
+  const lastTargetUpdate = useRef<number>(0);
 
   // Find the actual leading horse by X position
   const getLeadingHorseX = () => {
@@ -302,37 +300,29 @@ function FollowCamera({
     }
 
     // Only update if target has changed significantly (reduces jitter)
-    if (Math.abs(newTargetX - targetCameraX) > 0.5) {
-      // Start new interpolation
-      interpolationStartTime.current = now;
-      interpolationStartX.current = smoothCameraX;
+    if (Math.abs(newTargetX - targetCameraX) > 0.3) {
       setTargetCameraX(newTargetX);
-      lastServerUpdate.current = now;
+      lastTargetUpdate.current = now;
     }
-  }, [progress, isRacing, raceState, targetCameraX, smoothCameraX]);
+  }, [progress, isRacing, raceState, targetCameraX]);
 
-  // Client-side smooth interpolation - much faster for racing
-  useFrame(({ camera }) => {
+  // Ultra-smooth camera interpolation using useFrame
+  useFrame(({ camera }, delta) => {
     if (!camera) return;
 
-    const now = Date.now();
-    const timeSinceUpdate = now - lastServerUpdate.current;
-    const interpolationTime = now - interpolationStartTime.current;
+    // Ultra-smooth interpolation with capped delta
+    const maxDelta = 0.016; // Cap at 60fps equivalent
+    const cappedDelta = Math.min(delta, maxDelta);
     
-    // Ultra-smooth interpolation - faster during racing
-    const interpolationDuration = isRacing ? 200 : 500; // Faster camera during racing
-    const progress = Math.min(interpolationTime / interpolationDuration, 1);
+    // Different interpolation speeds based on racing state
+    const interpolationSpeed = isRacing ? 8.0 : 4.0; // Faster during racing
+    const lerpFactor = Math.min(cappedDelta * interpolationSpeed, 1.0);
     
-    // Use easing function for even smoother movement
-    const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-    
-    // Calculate smooth position
-    const distance = targetCameraX - interpolationStartX.current;
-    const newX = interpolationStartX.current + (distance * easeOutQuart);
-    
+    // Calculate smooth camera position
+    const newX = smoothCameraX + (targetCameraX - smoothCameraX) * lerpFactor;
     setSmoothCameraX(newX);
 
-    // Set camera position with smooth interpolated value
+    // Set camera position with ultra-smooth interpolated value
     camera.position.set(newX, 8, 16);
     camera.lookAt(newX, 1, 0);
   });
@@ -423,18 +413,12 @@ function SmoothHorse({
   const auraRef = useRef<THREE.Group>(null);
   const whipRef = useRef<THREE.Mesh>(null);
 
-  // Track dimensions for collision bounds
-  const trackWidth = 16;
-  const trackLength = 200;
-  const finishLineX = trackLength / 2; // Finish line position
-  const startX = -trackLength / 2; // Starting position
-
-  // Smooth position interpolation with collision avoidance
+  // Smooth position interpolation - much more responsive
   const [currentX, setCurrentX] = useState(START_X);
   const [currentZ, setCurrentZ] = useState(laneOffset);
   const [hasFinished, setHasFinished] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [raceStartTime, setRaceStartTime] = useState<number | null>(null); // Track when this race started
+  const [raceStartTime, setRaceStartTime] = useState<number | null>(null);
 
   // Get barrier color based on horse's lane (for jockey shirt/helmet)
   const barrierColor = getBarrierColor(horse.lane || index + 1);
@@ -448,8 +432,8 @@ function SmoothHorse({
 
   // Calculate race progress percentage and use horse's individual sprint start
   const raceProgressPercent = (position / 1200) * 100;
-  const sprintStartPercent = horse.sprintStartPercent || 60; // Use horse's individual sprint start
-  const isInSprintPhase = raceProgressPercent >= sprintStartPercent; // Individual horse sprint phase
+  const sprintStartPercent = horse.sprintStartPercent || 60;
+  const isInSprintPhase = raceProgressPercent >= sprintStartPercent;
 
   useFrame((state, delta) => {
     if (!groupRef.current) return;
@@ -467,7 +451,7 @@ function SmoothHorse({
     // Reset race start time when not racing
     if (!isRacing && raceStartTime !== null) {
       setRaceStartTime(null);
-      setHasFinished(false); // Also reset finish state
+      setHasFinished(false);
     }
 
     // Calculate race-specific elapsed time
@@ -475,15 +459,16 @@ function SmoothHorse({
       raceStartTime !== null ? clock.getElapsedTime() - raceStartTime : 0;
     setElapsedTime(raceElapsedTime);
 
-    // Much faster interpolation during racing for real-time feel
-    const interpolationSpeed = isRacing ? 8.0 : 1.0; // 8x faster during racing
+    // Ultra-smooth interpolation - much faster and more responsive
+    const interpolationSpeed = isRacing ? 25.0 : 5.0; // Much faster interpolation
+    const maxDelta = 0.016; // Cap delta to prevent jumps
 
-    // Calculate desired position with faster speed during racing
-    let desiredX =
-      currentX + (targetX - currentX) * Math.min(delta * interpolationSpeed, 1);
-    let desiredZ =
-      currentZ +
-      (laneOffset - currentZ) * Math.min(delta * interpolationSpeed, 1);
+    // Calculate desired position with capped delta for smooth movement
+    const cappedDelta = Math.min(delta, maxDelta);
+    const lerpFactor = Math.min(cappedDelta * interpolationSpeed, 1.0);
+    
+    let desiredX = currentX + (targetX - currentX) * lerpFactor;
+    let desiredZ = currentZ + (laneOffset - currentZ) * lerpFactor;
 
     // Check if horse has reached the real finish line (not extended)
     if (
@@ -493,7 +478,7 @@ function SmoothHorse({
       raceStartTime !== null
     ) {
       setHasFinished(true);
-      const finishTime = raceElapsedTime; // Use race-specific time
+      const finishTime = raceElapsedTime;
       console.log(
         `🐎 3D Horse ${horse.name} reached finish line at ${finishTime.toFixed(3)}s (X: ${desiredX.toFixed(2)})`,
       );
@@ -522,62 +507,61 @@ function SmoothHorse({
       }
     }
 
-    // Update positions with faster interpolation
+    // Update positions with ultra-smooth interpolation
     setCurrentX(desiredX);
     setCurrentZ(desiredZ);
 
-    // Update group position
+    // Update group position with smooth movement
     groupRef.current.position.set(desiredX, 1, desiredZ);
 
-    // Galloping animation - body bobbing up and down (faster during racing)
+    // Enhanced galloping animation - smoother and more realistic
     if (horseBodyRef.current && isRacing) {
       const time = clock.getElapsedTime();
-      const speed = 12; // Faster galloping animation during racing
-      const amplitude = 0.2; // Slightly more pronounced bobbing
-      horseBodyRef.current.position.y =
-        Math.sin(time * speed + index) * amplitude;
-
+      const speed = 15; // Even faster galloping for racing
+      const amplitude = 0.25; // More pronounced bobbing
+      
+      // Smooth sine wave for body movement
+      horseBodyRef.current.position.y = Math.sin(time * speed + index) * amplitude;
+      
       // Slight forward/backward motion for galloping effect
-      horseBodyRef.current.position.x =
-        Math.sin(time * speed * 0.5 + index) * 0.08;
+      horseBodyRef.current.position.x = Math.sin(time * speed * 0.5 + index) * 0.1;
     } else if (horseBodyRef.current) {
-      // Return to neutral position when not racing
+      // Smooth return to neutral position when not racing
       horseBodyRef.current.position.y = THREE.MathUtils.lerp(
         horseBodyRef.current.position.y,
         0,
-        0.1,
+        0.15, // Faster return to neutral
       );
       horseBodyRef.current.position.x = THREE.MathUtils.lerp(
         horseBodyRef.current.position.x,
         0,
-        0.1,
+        0.15,
       );
     }
 
-    // Whip animation during sprint phase
+    // Enhanced whip animation during sprint phase
     if (whipRef.current && isRacing && isInSprintPhase) {
       const time = clock.getElapsedTime();
-      const whipSpeed = 6; // Slower whipping motion (reduced from 12)
-      const whipAmplitude = Math.PI / 3; // 60 degree swing
+      const whipSpeed = 8; // Faster whipping motion
+      const whipAmplitude = Math.PI / 2.5; // Wider swing
 
-      // Rapid back-and-forth whipping motion (adjusted for right hand)
+      // More dramatic whipping motion
       const whipRotation = Math.sin(time * whipSpeed + index) * whipAmplitude;
-      whipRef.current.rotation.z = -Math.PI / 4 + whipRotation; // Base angle + whipping motion
+      whipRef.current.rotation.z = -Math.PI / 4 + whipRotation;
 
-      // Slight up-down motion for more realistic whipping
-      whipRef.current.position.y =
-        0.2 + Math.abs(Math.sin(time * whipSpeed + index)) * 0.1;
+      // More pronounced up-down motion
+      whipRef.current.position.y = 0.2 + Math.abs(Math.sin(time * whipSpeed + index)) * 0.15;
     } else if (whipRef.current) {
-      // Return whip to neutral position when not in sprint phase
+      // Smooth return to neutral position
       whipRef.current.rotation.z = THREE.MathUtils.lerp(
         whipRef.current.rotation.z,
         -Math.PI / 4,
-        0.1,
+        0.15,
       );
       whipRef.current.position.y = THREE.MathUtils.lerp(
         whipRef.current.position.y,
         0.2,
-        0.1,
+        0.15,
       );
     }
 

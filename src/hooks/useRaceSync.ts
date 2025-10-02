@@ -21,18 +21,24 @@ interface RaceData {
   timer_owner?: string;
 }
 
+interface InterpolatedHorse extends Horse {
+  serverPosition: number;
+  clientPosition: number;
+  velocity: number;
+  lastUpdateTime: number;
+}
+
 export function useRaceSync() {
   const [raceData, setRaceData] = useState<RaceData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Client-side interpolated positions for smooth movement
-  const [interpolatedHorses, setInterpolatedHorses] = useState<Horse[]>([]);
+  // Smooth interpolation system
+  const [interpolatedHorses, setInterpolatedHorses] = useState<InterpolatedHorse[]>([]);
   const lastServerUpdate = useRef<number>(0);
-  const serverUpdateInterval = useRef<number>(1000); // 1 second server updates
+  const animationFrameRef = useRef<number>();
   
   const timerInterval = useRef<NodeJS.Timeout | null>(null);
-  const interpolationInterval = useRef<NodeJS.Timeout | null>(null);
   const subscription = useRef<any>(null);
 
   // Initialize and load current race state
@@ -79,6 +85,7 @@ export function useRaceSync() {
               timer_owner: currentRace.timer_owner || undefined,
             };
             setRaceData(raceDataFromDB);
+            lastServerUpdate.current = Date.now();
           } else {
             console.log('🏇 No race found, database will create one on first tick');
           }
@@ -149,52 +156,89 @@ export function useRaceSync() {
     };
   }, [isConnected]);
 
-  // Client-side interpolation for smooth horse movement during racing
+  // Smooth interpolation system using requestAnimationFrame
   useEffect(() => {
-    if (!raceData || raceData.race_state !== 'racing') {
-      // Clear interpolation when not racing
-      if (interpolationInterval.current) {
-        clearInterval(interpolationInterval.current);
-        interpolationInterval.current = null;
-      }
-      setInterpolatedHorses(raceData?.horses || []);
-      return;
-    }
+    if (!raceData) return;
 
-    // Start client-side interpolation at 60fps during racing
-    console.log('🏃‍♂️ Starting client-side interpolation for smooth movement...');
-    
-    interpolationInterval.current = setInterval(() => {
+    const updateInterpolatedPositions = () => {
       const now = Date.now();
       const timeSinceLastUpdate = now - lastServerUpdate.current;
-      const interpolationProgress = Math.min(timeSinceLastUpdate / serverUpdateInterval.current, 1);
       
-      if (raceData && raceData.horses) {
-        const smoothHorses = raceData.horses.map((horse: any) => {
-          if (!horse || typeof horse.position !== 'number') return horse;
+      if (raceData.race_state === 'racing' && raceData.horses) {
+        const smoothHorses = raceData.horses.map((horse: any, index: number) => {
+          if (!horse || typeof horse.position !== 'number') {
+            return {
+              ...horse,
+              serverPosition: 0,
+              clientPosition: 0,
+              velocity: 0,
+              lastUpdateTime: now
+            };
+          }
+
+          // Find existing interpolated horse or create new one
+          const existingHorse = interpolatedHorses.find(h => h.id === horse.id);
           
-          // Calculate expected position based on horse's speed and time elapsed
+          // Calculate horse's expected speed based on attributes
           const baseSpeed = (horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2;
-          const currentSpeed = baseSpeed * (0.85 + Math.random() * 0.3);
+          const speedVariation = 0.85 + (Math.sin(now * 0.001 + index) * 0.15); // Smooth variation
+          const currentSpeed = baseSpeed * speedVariation;
           
-          // Interpolate position forward based on time since last server update
-          const interpolatedDistance = (currentSpeed * timeSinceLastUpdate) / 1000;
-          const smoothPosition = Math.min(1200, horse.position + interpolatedDistance);
+          // Convert speed to meters per second (more realistic)
+          const metersPerSecond = currentSpeed * 0.6; // Adjust for realistic horse speeds
+          
+          let clientPosition;
+          let velocity = metersPerSecond;
+          
+          if (existingHorse && timeSinceLastUpdate < 2000) {
+            // Smooth interpolation from last known position
+            const deltaTime = timeSinceLastUpdate / 1000; // Convert to seconds
+            const predictedPosition = existingHorse.clientPosition + (velocity * deltaTime);
+            
+            // Blend server position with predicted position for smooth correction
+            const serverWeight = Math.min(timeSinceLastUpdate / 1000, 0.3); // Max 30% server influence
+            clientPosition = predictedPosition * (1 - serverWeight) + horse.position * serverWeight;
+          } else {
+            // First update or too much time passed - use server position
+            clientPosition = horse.position;
+          }
+          
+          // Ensure position doesn't exceed race distance
+          clientPosition = Math.min(clientPosition, 1200);
           
           return {
             ...horse,
-            position: smoothPosition
+            serverPosition: horse.position,
+            clientPosition: clientPosition,
+            velocity: velocity,
+            lastUpdateTime: now,
+            position: clientPosition // Override position for components
           };
         });
         
         setInterpolatedHorses(smoothHorses);
+      } else {
+        // Not racing - use server positions directly
+        const staticHorses = (raceData.horses || []).map((horse: any) => ({
+          ...horse,
+          serverPosition: horse.position || 0,
+          clientPosition: horse.position || 0,
+          velocity: 0,
+          lastUpdateTime: now
+        }));
+        setInterpolatedHorses(staticHorses);
       }
-    }, 16); // ~60fps for smooth interpolation
+      
+      // Continue animation loop
+      animationFrameRef.current = requestAnimationFrame(updateInterpolatedPositions);
+    };
+
+    // Start animation loop
+    updateInterpolatedPositions();
 
     return () => {
-      if (interpolationInterval.current) {
-        clearInterval(interpolationInterval.current);
-        interpolationInterval.current = null;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
     };
   }, [raceData, lastServerUpdate.current]);
@@ -229,12 +273,9 @@ export function useRaceSync() {
 
   // Helper functions for components
   const getCurrentHorses = useCallback(() => {
-    // Return interpolated horses during racing for smooth movement
-    if (raceData?.race_state === 'racing' && interpolatedHorses.length > 0) {
-      return interpolatedHorses;
-    }
-    return raceData?.horses || [];
-  }, [raceData, interpolatedHorses]);
+    // Always return interpolated horses for smooth movement
+    return interpolatedHorses.length > 0 ? interpolatedHorses : (raceData?.horses || []);
+  }, [interpolatedHorses, raceData]);
 
   const getRaceState = useCallback(() => {
     return raceData?.race_state || 'pre-race';
