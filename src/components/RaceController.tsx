@@ -16,19 +16,12 @@ interface RaceControllerProps {
   isWaitingForNewRace?: boolean; // Add prop for mid-race blocking
 }
 
-export default function RaceController({
-  horses,
-  raceState,
-  preRaceTimer = 0,
-  countdownTimer = 0,
-  raceTimer = 0,
-  isWaitingForNewRace = false // Add prop with default
-}: RaceControllerProps) {
+export default function RaceController() {
   // Client-side timer for smooth countdown
-  const [clientTimer, setClientTimer] = useState(preRaceTimer);
-  const [clientCountdown, setClientCountdown] = useState(countdownTimer);
-  const lastServerTimer = useRef(preRaceTimer);
-  const lastServerCountdown = useRef(countdownTimer);
+  const [clientTimer, setClientTimer] = useState(0);
+  const [clientCountdown, setClientCountdown] = useState(0);
+  const lastServerTimer = useRef(0);
+  const lastServerCountdown = useRef(0);
   const clientInterval = useRef<NodeJS.Timeout | null>(null);
 
   // 3D Finish Line Detector System
