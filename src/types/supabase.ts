@@ -82,6 +82,7 @@ export type Database = {
           last_update_time: string | null
           photo_finish_results: Json | null
           pre_race_timer: number
+          race_end_time: string | null
           race_progress: Json
           race_results: Json
           race_start_time: string | null
@@ -103,6 +104,7 @@ export type Database = {
           last_update_time?: string | null
           photo_finish_results?: Json | null
           pre_race_timer?: number
+          race_end_time?: string | null
           race_progress?: Json
           race_results?: Json
           race_start_time?: string | null
@@ -124,6 +126,7 @@ export type Database = {
           last_update_time?: string | null
           photo_finish_results?: Json | null
           pre_race_timer?: number
+          race_end_time?: string | null
           race_progress?: Json
           race_results?: Json
           race_start_time?: string | null
