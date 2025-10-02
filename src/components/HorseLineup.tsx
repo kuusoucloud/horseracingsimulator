@@ -20,6 +20,7 @@ import { getBarrierColor } from "@/lib/utils";
 import {
   getHorseDescriptionFromOdds,
   getStoredHorseStats,
+  calculateOddsFromELO,
 } from "@/data/horses";
 import { Trophy } from "lucide-react";
 
@@ -64,16 +65,37 @@ export default function HorseLineup({
     return stableHorsesRef.current;
   }, [horses]);
 
-  // Memoize sorted horses with stable sort
+  // Memoize sorted horses with stable sort and ELO-based odds calculation
   const sortedHorses = useMemo(() => {
     if (!stableHorses || stableHorses.length === 0) return [];
     
-    // Create a stable sort that maintains order for horses with same ELO
-    return [...stableHorses].sort((a, b) => {
-      const eloDiff = b.elo - a.elo;
+    // Calculate fresh odds based on current ELO ratings
+    const horsesWithElo = stableHorses.map(horse => ({
+      name: horse.name,
+      elo: horse.elo || 500
+    }));
+    
+    const oddsData = calculateOddsFromELO(horsesWithElo);
+    
+    // Update horses with calculated odds
+    const horsesWithCalculatedOdds = stableHorses.map(horse => {
+      const calculatedOdds = oddsData.find(o => o.name === horse.name)?.odds || 5.0;
+      return {
+        ...horse,
+        odds: calculatedOdds
+      };
+    });
+    
+    // Sort by odds (lowest odds first = favorites first)
+    return [...horsesWithCalculatedOdds].sort((a, b) => {
+      const oddsDiff = a.odds - b.odds;
+      if (Math.abs(oddsDiff) > 0.01) return oddsDiff; // Sort by odds primarily
+      
+      // If odds are very similar, sort by ELO as tiebreaker (higher ELO first)
+      const eloDiff = (b.elo || 500) - (a.elo || 500);
       if (eloDiff !== 0) return eloDiff;
       
-      // If ELO is the same, sort by ID for stability
+      // Final tiebreaker: sort by ID for stability
       return a.id.localeCompare(b.id);
     });
   }, [stableHorses]);
@@ -142,8 +164,8 @@ export default function HorseLineup({
       const rank = getHorseRank(horse.elo);
       const barrierColor = getBarrierColor(horse.lane || index + 1);
       
-      // Safety check for odds - provide default if undefined
-      const safeOdds = horse.odds || 5.0;
+      // Use the calculated odds from sorting
+      const calculatedOdds = horse.odds || 5.0;
       
       return (
         <motion.div
@@ -187,23 +209,23 @@ export default function HorseLineup({
             <Badge
               variant="outline"
               className={`font-bold text-xs px-1 py-0 ${
-                safeOdds <= 2.0
+                calculatedOdds <= 2.0
                   ? "bg-green-500/20 border-green-400/50 text-green-300"
-                  : safeOdds <= 5.0
+                  : calculatedOdds <= 5.0
                     ? "bg-yellow-500/20 border-yellow-400/50 text-yellow-300"
-                    : safeOdds <= 10.0
+                    : calculatedOdds <= 10.0
                       ? "bg-orange-500/20 border-orange-400/50 text-orange-300"
                       : "bg-red-500/20 border-red-400/50 text-red-300"
               }`}
             >
-              {safeOdds.toFixed(2)}:1
+              {calculatedOdds.toFixed(2)}:1
             </Badge>
           </div>
 
           {/* ELO rating and horse description */}
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-white/70 italic truncate flex-1">
-              {getHorseDescriptionFromOdds(safeOdds)}
+              {getHorseDescriptionFromOdds(calculatedOdds)}
             </span>
             <span className="text-white/60 font-mono ml-2">
               ELO: {Math.round(horse.elo || 0)}
@@ -238,7 +260,14 @@ export default function HorseLineup({
 
       <div className="relative z-10 p-3 h-full flex flex-col">
         <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-xl border border-white/10 shadow-2xl p-4 h-full flex flex-col">
-          {/* All 8 horses in a fixed height container - sorted by ELO rating (highest first) */}
+          {/* Header showing sorting method */}
+          <div className="mb-2 text-center">
+            <p className="text-xs text-white/60">
+              🏆 Sorted by Odds (Favorites → Longshots)
+            </p>
+          </div>
+          
+          {/* All 8 horses in a fixed height container - sorted by odds (lowest first) */}
           <div className="flex-1 flex flex-col justify-between min-h-0 gap-1">
             {horseCards}
           </div>
