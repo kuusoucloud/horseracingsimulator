@@ -459,11 +459,11 @@ function SmoothHorse({
       raceStartTime !== null ? clock.getElapsedTime() - raceStartTime : 0;
     setElapsedTime(raceElapsedTime);
 
-    // Ultra-smooth interpolation - much faster and more responsive
-    const interpolationSpeed = isRacing ? 25.0 : 5.0; // Much faster interpolation
+    // Multiplayer-style smooth interpolation - no fighting with server updates
+    const interpolationSpeed = isRacing ? 15.0 : 8.0; // Smooth but responsive
     const maxDelta = 0.016; // Cap delta to prevent jumps
 
-    // Calculate desired position with capped delta for smooth movement
+    // Calculate desired position with smooth interpolation
     const cappedDelta = Math.min(delta, maxDelta);
     const lerpFactor = Math.min(cappedDelta * interpolationSpeed, 1.0);
     
@@ -507,61 +507,61 @@ function SmoothHorse({
       }
     }
 
-    // Update positions with ultra-smooth interpolation
+    // Update positions with multiplayer-smooth interpolation
     setCurrentX(desiredX);
     setCurrentZ(desiredZ);
 
     // Update group position with smooth movement
     groupRef.current.position.set(desiredX, 1, desiredZ);
 
-    // Enhanced galloping animation - smoother and more realistic
+    // Smooth galloping animation - perfectly synced with movement
     if (horseBodyRef.current && isRacing) {
       const time = clock.getElapsedTime();
-      const speed = 15; // Even faster galloping for racing
-      const amplitude = 0.25; // More pronounced bobbing
+      const speed = 12; // Consistent galloping speed
+      const amplitude = 0.2; // Smooth bobbing
       
       // Smooth sine wave for body movement
       horseBodyRef.current.position.y = Math.sin(time * speed + index) * amplitude;
       
       // Slight forward/backward motion for galloping effect
-      horseBodyRef.current.position.x = Math.sin(time * speed * 0.5 + index) * 0.1;
+      horseBodyRef.current.position.x = Math.sin(time * speed * 0.5 + index) * 0.08;
     } else if (horseBodyRef.current) {
       // Smooth return to neutral position when not racing
       horseBodyRef.current.position.y = THREE.MathUtils.lerp(
         horseBodyRef.current.position.y,
         0,
-        0.15, // Faster return to neutral
+        0.1,
       );
       horseBodyRef.current.position.x = THREE.MathUtils.lerp(
         horseBodyRef.current.position.x,
         0,
-        0.15,
+        0.1,
       );
     }
 
     // Enhanced whip animation during sprint phase
     if (whipRef.current && isRacing && isInSprintPhase) {
       const time = clock.getElapsedTime();
-      const whipSpeed = 8; // Faster whipping motion
-      const whipAmplitude = Math.PI / 2.5; // Wider swing
+      const whipSpeed = 6; // Smooth whipping motion
+      const whipAmplitude = Math.PI / 3; // Controlled swing
 
-      // More dramatic whipping motion
+      // Smooth whipping motion
       const whipRotation = Math.sin(time * whipSpeed + index) * whipAmplitude;
       whipRef.current.rotation.z = -Math.PI / 4 + whipRotation;
 
-      // More pronounced up-down motion
-      whipRef.current.position.y = 0.2 + Math.abs(Math.sin(time * whipSpeed + index)) * 0.15;
+      // Smooth up-down motion
+      whipRef.current.position.y = 0.2 + Math.abs(Math.sin(time * whipSpeed + index)) * 0.1;
     } else if (whipRef.current) {
       // Smooth return to neutral position
       whipRef.current.rotation.z = THREE.MathUtils.lerp(
         whipRef.current.rotation.z,
         -Math.PI / 4,
-        0.15,
+        0.1,
       );
       whipRef.current.position.y = THREE.MathUtils.lerp(
         whipRef.current.position.y,
         0.2,
-        0.15,
+        0.1,
       );
     }
 

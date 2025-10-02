@@ -21,11 +21,12 @@ interface RaceData {
   timer_owner?: string;
 }
 
-interface InterpolatedHorse extends Horse {
+interface SmoothHorse extends Horse {
   serverPosition: number;
   clientPosition: number;
   velocity: number;
-  lastUpdateTime: number;
+  lastServerUpdate: number;
+  predictedPosition: number;
 }
 
 export function useRaceSync() {
@@ -33,8 +34,8 @@ export function useRaceSync() {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Smooth interpolation system
-  const [interpolatedHorses, setInterpolatedHorses] = useState<InterpolatedHorse[]>([]);
+  // Multiplayer-style smooth horses with client prediction
+  const [smoothHorses, setSmoothHorses] = useState<SmoothHorse[]>([]);
   const lastServerUpdate = useRef<number>(0);
   const animationFrameRef = useRef<number>();
   
@@ -156,67 +157,71 @@ export function useRaceSync() {
     };
   }, [isConnected]);
 
-  // Smooth interpolation system using requestAnimationFrame
+  // Multiplayer-style client prediction system
   useEffect(() => {
     if (!raceData) return;
 
-    const updateInterpolatedPositions = () => {
+    const updateClientPrediction = () => {
       const now = Date.now();
       const timeSinceLastUpdate = now - lastServerUpdate.current;
       
       if (raceData.race_state === 'racing' && raceData.horses) {
-        const smoothHorses = raceData.horses.map((horse: any, index: number) => {
+        const predictedHorses = raceData.horses.map((horse: any, index: number) => {
           if (!horse || typeof horse.position !== 'number') {
             return {
               ...horse,
               serverPosition: 0,
               clientPosition: 0,
               velocity: 0,
-              lastUpdateTime: now
+              lastServerUpdate: now,
+              predictedPosition: 0
             };
           }
 
-          // Find existing interpolated horse or create new one
-          const existingHorse = interpolatedHorses.find(h => h.id === horse.id);
+          // Find existing smooth horse or create new one
+          const existingHorse = smoothHorses.find(h => h.id === horse.id);
           
-          // Calculate horse's expected speed based on attributes
-          const baseSpeed = (horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2;
-          const speedVariation = 0.85 + (Math.sin(now * 0.001 + index) * 0.15); // Smooth variation
-          const currentSpeed = baseSpeed * speedVariation;
-          
-          // Convert speed to meters per second (more realistic)
-          const metersPerSecond = currentSpeed * 0.6; // Adjust for realistic horse speeds
+          // Get server velocity if available, otherwise calculate from attributes
+          let velocity = horse.velocity;
+          if (!velocity) {
+            const baseSpeed = (horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2;
+            const speedVariation = 0.85 + (Math.sin(now * 0.0005 + index) * 0.15);
+            velocity = baseSpeed * speedVariation * 0.6; // Convert to realistic m/s
+          }
           
           let clientPosition;
-          let velocity = metersPerSecond;
+          let predictedPosition;
           
-          if (existingHorse && timeSinceLastUpdate < 2000) {
-            // Smooth interpolation from last known position
+          if (existingHorse && timeSinceLastUpdate < 500) { // 500ms max prediction
+            // Client-side prediction: continue from last position with velocity
             const deltaTime = timeSinceLastUpdate / 1000; // Convert to seconds
-            const predictedPosition = existingHorse.clientPosition + (velocity * deltaTime);
+            predictedPosition = existingHorse.clientPosition + (velocity * deltaTime);
             
-            // Blend server position with predicted position for smooth correction
-            const serverWeight = Math.min(timeSinceLastUpdate / 1000, 0.3); // Max 30% server influence
-            clientPosition = predictedPosition * (1 - serverWeight) + horse.position * serverWeight;
+            // Smooth correction towards server position (multiplayer reconciliation)
+            const correctionStrength = Math.min(timeSinceLastUpdate / 200, 0.5); // Max 50% correction
+            clientPosition = predictedPosition * (1 - correctionStrength) + horse.position * correctionStrength;
           } else {
-            // First update or too much time passed - use server position
+            // First update or too much lag - snap to server position
             clientPosition = horse.position;
+            predictedPosition = horse.position;
           }
           
           // Ensure position doesn't exceed race distance
           clientPosition = Math.min(clientPosition, 1200);
+          predictedPosition = Math.min(predictedPosition, 1200);
           
           return {
             ...horse,
             serverPosition: horse.position,
             clientPosition: clientPosition,
             velocity: velocity,
-            lastUpdateTime: now,
-            position: clientPosition // Override position for components
+            lastServerUpdate: now,
+            predictedPosition: predictedPosition,
+            position: clientPosition // Override for components
           };
         });
         
-        setInterpolatedHorses(smoothHorses);
+        setSmoothHorses(predictedHorses);
       } else {
         // Not racing - use server positions directly
         const staticHorses = (raceData.horses || []).map((horse: any) => ({
@@ -224,17 +229,18 @@ export function useRaceSync() {
           serverPosition: horse.position || 0,
           clientPosition: horse.position || 0,
           velocity: 0,
-          lastUpdateTime: now
+          lastServerUpdate: now,
+          predictedPosition: horse.position || 0
         }));
-        setInterpolatedHorses(staticHorses);
+        setSmoothHorses(staticHorses);
       }
       
-      // Continue animation loop
-      animationFrameRef.current = requestAnimationFrame(updateInterpolatedPositions);
+      // Continue prediction loop at 60fps
+      animationFrameRef.current = requestAnimationFrame(updateClientPrediction);
     };
 
-    // Start animation loop
-    updateInterpolatedPositions();
+    // Start client prediction loop
+    updateClientPrediction();
 
     return () => {
       if (animationFrameRef.current) {
@@ -243,26 +249,26 @@ export function useRaceSync() {
     };
   }, [raceData, lastServerUpdate.current]);
 
-  // Server timer that calls database function (keep at 1 second for sync)
+  // High-frequency server timer (10fps = 100ms for smooth multiplayer experience)
   useEffect(() => {
     if (!supabase || !isConnected) return;
 
-    console.log('⏰ Starting database-driven race timer...');
+    console.log('⚡ Starting high-frequency race timer (10fps)...');
     
     timerInterval.current = setInterval(async () => {
       try {
-        // Call database function directly - no edge function needed!
+        // Call high-frequency database function
         if (supabase) {
-          const { error } = await supabase.rpc('trigger_race_tick');
+          const { error } = await supabase.rpc('update_race_state_high_frequency');
           
           if (error) {
-            console.error('❌ Database tick error:', error);
+            console.error('❌ High-frequency update error:', error);
           }
         }
       } catch (error) {
         console.error('❌ Timer error:', error);
       }
-    }, 1000); // Keep server updates at 1 second for synchronization
+    }, 100); // 100ms = 10fps server updates (multiplayer game standard)
 
     return () => {
       if (timerInterval.current) {
@@ -273,9 +279,9 @@ export function useRaceSync() {
 
   // Helper functions for components
   const getCurrentHorses = useCallback(() => {
-    // Always return interpolated horses for smooth movement
-    return interpolatedHorses.length > 0 ? interpolatedHorses : (raceData?.horses || []);
-  }, [interpolatedHorses, raceData]);
+    // Always return smooth horses with client prediction
+    return smoothHorses.length > 0 ? smoothHorses : (raceData?.horses || []);
+  }, [smoothHorses, raceData]);
 
   const getRaceState = useCallback(() => {
     return raceData?.race_state || 'pre-race';
