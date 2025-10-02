@@ -159,10 +159,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
-      race_tick: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
       start_new_race: {
         Args: Record<PropertyKey, never>
         Returns: undefined

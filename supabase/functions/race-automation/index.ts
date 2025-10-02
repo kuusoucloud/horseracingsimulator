@@ -12,38 +12,26 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Call the race automation function
-    const { error } = await supabaseClient.rpc('update_race_state')
+    // This function is now disabled to prevent race conflicts
+    // Only update_race_tick() should handle race completion
     
-    if (error) {
-      console.error('Race automation error:', error)
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
     return new Response(
-      JSON.stringify({ success: true, message: 'Race state updated' }),
+      JSON.stringify({ 
+        success: true, 
+        message: 'Race automation disabled - using update_race_tick() instead',
+        note: 'This function was causing premature race endings'
+      }),
       { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Race automation error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Race automation disabled' }),
       { 
-        status: 500,
+        status: 200, // Return 200 to avoid errors
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )

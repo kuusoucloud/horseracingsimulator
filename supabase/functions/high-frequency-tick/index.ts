@@ -16,32 +16,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_KEY')!
+    // This function is now disabled to prevent race conflicts
+    // Only update_race_tick() should handle race completion
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    // Call the race_tick function
-    const { error } = await supabase.rpc('race_tick')
-    
-    if (error) {
-      console.error('Race tick error:', error)
-      return new Response(
-        JSON.stringify({ 
-          error: 'Race tick failed', 
-          details: error.message 
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'High-frequency race tick processed',
+        message: 'High-frequency tick disabled - using update_race_tick() instead',
+        note: 'This function was causing premature race endings',
         timestamp: new Date().toISOString()
       }),
       { 
@@ -51,14 +33,14 @@ Deno.serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('High-frequency tick error:', error)
+    console.error('High-frequency tick disabled:', error)
     return new Response(
       JSON.stringify({ 
-        error: 'High-frequency tick error', 
-        details: error.message 
+        success: true,
+        message: 'High-frequency tick disabled'
       }),
       { 
-        status: 500, 
+        status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
