@@ -146,6 +146,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      auto_restart_race: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       calculate_elo_change: {
         Args: {
           current_elo: number
