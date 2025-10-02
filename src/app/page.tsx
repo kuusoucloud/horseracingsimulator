@@ -186,14 +186,6 @@ export default function Home() {
     // Server handles the transition, client just acknowledges
   };
 
-  // Reset all ELO ratings to 500 (for testing)
-  const handleResetElo = () => {
-    resetAllEloRatings();
-    // Force a re-render by updating horses
-    setHorsesWithElo(generateRandomHorses(8));
-    console.log('🔄 All ELO ratings reset to 500!');
-  };
-
   // Betting handler (placeholder - not used in server-controlled version)
   const handleBet = (horse: Horse, amount: number) => {
     setSelectedBet({ horseId: horse.id, amount });
