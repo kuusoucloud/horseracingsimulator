@@ -188,7 +188,12 @@ export default function Home() {
 
   // Betting handler (placeholder - not used in server-controlled version)
   const handleBet = (horse: Horse, amount: number) => {
-    setSelectedBet({ horseId: horse.id, amount });
+    setSelectedBet({ 
+      horseId: horse.id, 
+      horseName: horse.name,
+      amount,
+      odds: horse.odds
+    });
   };
 
   // Don't render until client-side hydration is complete
