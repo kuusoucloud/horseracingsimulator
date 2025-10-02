@@ -65,32 +65,18 @@ export default function HorseLineup({
     return stableHorsesRef.current;
   }, [horses]);
 
-  // Memoize sorted horses with stable sort and ELO-based odds calculation
+  // Memoize sorted horses with stable sort and use server-calculated odds
   const sortedHorses = useMemo(() => {
     if (!stableHorses || stableHorses.length === 0) return [];
     
-    // Use ELO data directly from horses instead of fetching it again
-    const horsesWithCalculatedOdds = stableHorses.map(horse => {
-      // Calculate odds based on ELO rating (if available)
-      const horseElo = horse.elo || 500;
-      
-      // Simple odds calculation based on ELO - avoid external API calls
-      let calculatedOdds;
-      if (horseElo >= 800) calculatedOdds = 1.5 + Math.random() * 0.5; // 1.5-2.0
-      else if (horseElo >= 700) calculatedOdds = 2.0 + Math.random() * 1.0; // 2.0-3.0
-      else if (horseElo >= 600) calculatedOdds = 3.0 + Math.random() * 2.0; // 3.0-5.0
-      else if (horseElo >= 500) calculatedOdds = 5.0 + Math.random() * 3.0; // 5.0-8.0
-      else if (horseElo >= 400) calculatedOdds = 8.0 + Math.random() * 4.0; // 8.0-12.0
-      else calculatedOdds = 12.0 + Math.random() * 8.0; // 12.0-20.0
-      
-      return {
-        ...horse,
-        odds: calculatedOdds
-      };
-    });
+    // Use the odds that are already calculated by the server - DO NOT recalculate
+    const horsesWithServerOdds = stableHorses.map(horse => ({
+      ...horse,
+      odds: horse.odds || 5.0 // Use server-calculated odds directly
+    }));
     
     // Sort by odds (lowest odds first = favorites first)
-    return [...horsesWithCalculatedOdds].sort((a, b) => {
+    return [...horsesWithServerOdds].sort((a, b) => {
       const oddsDiff = a.odds - b.odds;
       if (Math.abs(oddsDiff) > 0.01) return oddsDiff; // Sort by odds primarily
       
@@ -167,8 +153,8 @@ export default function HorseLineup({
       const rank = getHorseRank(horse.elo);
       const barrierColor = getBarrierColor(horse.lane || index + 1);
       
-      // Use the calculated odds from sorting
-      const calculatedOdds = horse.odds || 5.0;
+      // Use the server-calculated odds directly - NO client-side calculation
+      const serverOdds = horse.odds || 5.0;
       
       return (
         <motion.div
@@ -212,23 +198,23 @@ export default function HorseLineup({
             <Badge
               variant="outline"
               className={`font-bold text-xs px-1 py-0 ${
-                calculatedOdds <= 2.0
+                serverOdds <= 2.0
                   ? "bg-green-500/20 border-green-400/50 text-green-300"
-                  : calculatedOdds <= 5.0
+                  : serverOdds <= 5.0
                     ? "bg-yellow-500/20 border-yellow-400/50 text-yellow-300"
-                    : calculatedOdds <= 10.0
+                    : serverOdds <= 10.0
                       ? "bg-orange-500/20 border-orange-400/50 text-orange-300"
                       : "bg-red-500/20 border-red-400/50 text-red-300"
               }`}
             >
-              {calculatedOdds.toFixed(2)}:1
+              {serverOdds.toFixed(2)}:1
             </Badge>
           </div>
 
           {/* ELO rating and horse description */}
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-white/70 italic truncate flex-1">
-              {getHorseDescriptionFromOdds(calculatedOdds)}
+              {getHorseDescriptionFromOdds(serverOdds)}
             </span>
             <span className="text-white/60 font-mono ml-2">
               ELO: {Math.round(horse.elo || 0)}
