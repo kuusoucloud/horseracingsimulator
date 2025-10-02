@@ -45,6 +45,7 @@ export function useRaceSync() {
   const animationFrameRef = useRef<number>();
   
   const subscription = useRef<any>(null);
+  const raceTickInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Sync waiting state with ref
   useEffect(() => {
@@ -56,7 +57,7 @@ export function useRaceSync() {
     }
   }, [isWaitingForNewRace]);
 
-  // Initialize and load current race state - CLIENT IS READ-ONLY
+  // Initialize and load current race state
   useEffect(() => {
     if (!supabase) {
       console.log('🏇 No Supabase connection - running offline');
@@ -67,7 +68,7 @@ export function useRaceSync() {
 
     const initializeRaceSystem = async () => {
       try {
-        console.log('🏇 Loading current race state (READ-ONLY CLIENT)...');
+        console.log('🏇 Loading current race state...');
 
         // Load current race state
         if (supabase) {
@@ -113,7 +114,7 @@ export function useRaceSync() {
             }
             lastServerUpdate.current = Date.now();
           } else {
-            console.log('🏇 No race found - server should create one automatically');
+            console.log('🏇 No race found, server will create one automatically');
             setIsWaitingForNewRace(false);
           }
         }
@@ -131,11 +132,45 @@ export function useRaceSync() {
     initializeRaceSystem();
   }, []);
 
-  // Set up real-time subscription - CLIENT IS READ-ONLY
+  // SIMPLE SERVER AUTOMATION TRIGGER - Call race automation edge function
   useEffect(() => {
     if (!supabase || !isConnected) return;
 
-    console.log('📡 Setting up real-time subscription (READ-ONLY CLIENT)...');
+    console.log('🤖 Starting race automation trigger...');
+    
+    const triggerRaceAutomation = async () => {
+      try {
+        // Call the race automation edge function
+        const { data, error } = await supabase.functions.invoke('race-automation', {
+          body: {}
+        });
+        
+        if (error) {
+          console.error('❌ Race automation error:', error);
+        } else {
+          console.log('✅ Race automation triggered successfully');
+        }
+      } catch (error) {
+        console.error('❌ Race automation trigger error:', error);
+      }
+    };
+
+    // Trigger race automation every 100ms
+    raceTickInterval.current = setInterval(triggerRaceAutomation, 100);
+
+    return () => {
+      if (raceTickInterval.current) {
+        clearInterval(raceTickInterval.current);
+        raceTickInterval.current = null;
+      }
+    };
+  }, [isConnected]);
+
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!supabase || !isConnected) return;
+
+    console.log('📡 Setting up real-time subscription...');
     
     subscription.current = supabase
       .channel('race_updates')
@@ -448,7 +483,7 @@ export function useRaceSync() {
     
     // Legacy compatibility (for existing components)
     syncedData: raceData,
-    updateRaceState: () => console.log('🚫 Client is read-only - server handles all race logic'),
+    updateRaceState: () => console.log('🚫 Client triggers server automation via edge functions'),
     initializeNewRace: () => console.log('🚫 Server handles race creation automatically'),
   };
 }
