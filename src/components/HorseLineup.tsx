@@ -207,7 +207,7 @@ export default function HorseLineup({
                       : "bg-red-500/20 border-red-400/50 text-red-300"
               }`}
             >
-              {serverOdds.toFixed(2)}:1
+              {serverOdds.toFixed(2)}
             </Badge>
           </div>
 

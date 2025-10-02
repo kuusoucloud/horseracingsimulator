@@ -279,7 +279,7 @@ export default function RaceResults({
                       {horse.finishTime?.toFixed(2)}s
                     </Badge>
                     <div className="text-emerald-300 text-sm font-semibold">
-                      {(horse.horse?.odds || horse.odds || 1).toFixed(2)}:1 odds
+                      {(horse.horse?.odds || horse.odds || 1).toFixed(2)} odds
                     </div>
                   </div>
                 </div>
@@ -315,7 +315,7 @@ export default function RaceResults({
                         <h4 className="font-bold text-white">{horseName}</h4>
                         <div className="flex items-center gap-2 text-sm">
                           <span className="text-white/60">Lane {horse.lane}</span>
-                          <span className="text-emerald-300">{(horse.horse?.odds || horse.odds || 1).toFixed(2)}:1</span>
+                          <span className="text-emerald-300">{(horse.horse?.odds || horse.odds || 1).toFixed(2)}</span>
                           {horse.eloChange && (
                             <span className={`font-bold ${
                               horse.eloChange.change > 0 ? 'text-green-400' : 
