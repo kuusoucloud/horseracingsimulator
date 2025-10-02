@@ -194,6 +194,11 @@ export default function Home() {
     console.log('🔄 All ELO ratings reset to 500!');
   };
 
+  // Betting handler (placeholder - not used in server-controlled version)
+  const handleBet = (horse: Horse, amount: number) => {
+    setSelectedBet({ horseId: horse.id, amount });
+  };
+
   // Don't render until client-side hydration is complete
   if (!isClient) {
     return (
