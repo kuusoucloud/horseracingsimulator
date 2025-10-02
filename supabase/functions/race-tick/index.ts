@@ -20,107 +20,32 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Get current race
+    // Use the new database function that waits for all horses to finish
+    const { error: tickError } = await supabase.rpc('update_race_tick')
+
+    if (tickError) {
+      throw new Error('Race tick function error: ' + tickError.message)
+    }
+
+    // Get updated race state to return status
     const { data: raceData, error: raceError } = await supabase
       .from('race_state')
-      .select('*')
-      .eq('race_state', 'racing')
+      .select('race_state, timer, race_results')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single()
 
-    if (raceError || !raceData) {
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          message: 'No active race',
-        }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // Get horses in the race
-    const { data: horses, error: horsesError } = await supabase
-      .from('horses')
-      .select('*')
-      .in('id', raceData.horse_lineup)
-
-    if (horsesError || !horses) {
-      throw new Error('Failed to get horses: ' + horsesError?.message)
-    }
-
-    // Calculate race progress
-    const raceStartTime = new Date(raceData.race_start_time).getTime()
-    const now = Date.now()
-    const raceDurationMs = now - raceStartTime
-    const timeDeltaMs = 100 // 100ms tick
-
-    // Update each horse position
-    const updates = horses.map(horse => {
-      // Calculate realistic horse speed (18-25 m/s range)
-      const baseSpeed = ((horse.speed * 0.8 + horse.acceleration * 0.2) / 100.0)
-      // Use horse ID for consistent speed variation
-      const speedVariation = 0.85 + (((horse.id.charCodeAt(0) * 7) % 100) / 100.0 * 0.3)
-      const currentVelocity = (18.0 + (baseSpeed * 7.0)) * speedVariation
-      
-      // Calculate new position
-      const newPosition = Math.min(
-        (horse.position || 0) + (currentVelocity * timeDeltaMs / 1000.0),
-        1200.0
-      )
-
-      return {
-        id: horse.id,
-        position: newPosition,
-        velocity: currentVelocity,
-        updated_at: new Date().toISOString()
-      }
-    })
-
-    // Update all horses
-    for (const update of updates) {
-      await supabase
-        .from('horses')
-        .update({
-          position: update.position,
-          velocity: update.velocity,
-          updated_at: update.updated_at
-        })
-        .eq('id', update.id)
-    }
-
-    // Check if race is complete
-    const raceComplete = updates.some(horse => horse.position >= 1200)
-    
-    if (raceComplete) {
-      // Race complete - trigger finish
-      await supabase
-        .from('race_state')
-        .update({
-          race_state: 'photo_finish',
-          race_end_time: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('race_state', 'racing')
-    } else {
-      // Update race timer
-      const timer = Math.max(0, 20 - Math.floor(raceDurationMs / 1000))
-      await supabase
-        .from('race_state')
-        .update({
-          timer: timer,
-          updated_at: new Date().toISOString()
-        })
-        .eq('race_state', 'racing')
-    }
+    const isRaceComplete = raceData?.race_state === 'photo_finish' || raceData?.race_state === 'finished'
+    const finishedHorses = raceData?.race_results ? JSON.parse(raceData.race_results).length : 0
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'Race tick processed',
-        horsesUpdated: updates.length,
-        raceComplete,
+        message: 'Race tick processed - waiting for all horses to finish',
+        raceState: raceData?.race_state || 'unknown',
+        timer: raceData?.timer || 0,
+        finishedHorses,
+        raceComplete: isRaceComplete,
         timestamp: new Date().toISOString()
       }),
       { 

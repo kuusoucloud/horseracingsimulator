@@ -183,6 +183,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      update_race_tick: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
