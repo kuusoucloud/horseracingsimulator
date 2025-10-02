@@ -89,6 +89,7 @@ export type Database = {
           race_state: string
           race_timer: number | null
           results_shown_at: string | null
+          results_timer: number | null
           show_photo_finish: boolean | null
           show_results: boolean | null
           timer_owner: string | null
@@ -112,6 +113,7 @@ export type Database = {
           race_state?: string
           race_timer?: number | null
           results_shown_at?: string | null
+          results_timer?: number | null
           show_photo_finish?: boolean | null
           show_results?: boolean | null
           timer_owner?: string | null
@@ -135,6 +137,7 @@ export type Database = {
           race_state?: string
           race_timer?: number | null
           results_shown_at?: string | null
+          results_timer?: number | null
           show_photo_finish?: boolean | null
           show_results?: boolean | null
           timer_owner?: string | null

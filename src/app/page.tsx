@@ -55,6 +55,7 @@ export default function Home() {
   const preRaceTimer = raceState === 'pre-race' ? timer : 10;
   const countdownTimer = raceState === 'countdown' ? timer : 0;
   const raceTimer = raceState === 'racing' ? timer : 0;
+  const resultsTimer = raceState === 'finished' ? timer : 0; // Add results timer
   
   // Server-managed UI states
   const showPhotoFinishFromServer = shouldShowPhotoFinish();
@@ -365,6 +366,7 @@ export default function Home() {
           isOpen={true}
           onClose={() => console.log('🚫 Results close handled by server')}
           onNewRace={handleNewRace}
+          autoCloseTimer={resultsTimer}
         />
       )}
     </div>

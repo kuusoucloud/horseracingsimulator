@@ -117,24 +117,18 @@ export default function RaceResults({
   useEffect(() => {
     if (!isOpen) return;
 
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isOpen]);
-
-  // Set countdown to 15 seconds to match server timing
-  useEffect(() => {
-    if (isOpen && results.length > 0) {
-      setCountdown(15);
+    // Use autoCloseTimer from server instead of local countdown
+    if (autoCloseTimer > 0) {
+      setCountdown(autoCloseTimer);
     }
-  }, [isOpen, results]);
+  }, [isOpen, autoCloseTimer]);
+
+  // Set countdown to match server results_timer
+  useEffect(() => {
+    if (isOpen && results.length > 0 && autoCloseTimer > 0) {
+      setCountdown(autoCloseTimer);
+    }
+  }, [isOpen, results, autoCloseTimer]);
 
   // Safety check for results
   if (!results || results.length === 0) {
