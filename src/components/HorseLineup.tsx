@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,16 +41,32 @@ export default function HorseLineup({
   const [betAmount, setBetAmount] = useState<number>(10);
   const [betDialogOpen, setBetDialogOpen] = useState<boolean>(false);
   
-  // SIMPLIFIED: Remove complex stability mechanisms that cause flickering
-  // Just use the horses directly with basic memoization
+  // STABLE horses with ref-based caching to prevent flickering
+  const stableHorsesRef = useRef<Horse[]>([]);
+  const lastHorsesHashRef = useRef<string>('');
+  
   const stableHorses = useMemo(() => {
-    return horses || [];
+    if (!horses || horses.length === 0) {
+      return stableHorsesRef.current;
+    }
+    
+    // Create hash of horses to detect actual changes
+    const horsesHash = JSON.stringify(horses.map(h => ({ id: h.id, name: h.name, elo: h.elo, odds: h.odds })));
+    
+    // Only update if horses actually changed
+    if (horsesHash !== lastHorsesHashRef.current) {
+      console.log('🏇 Horse lineup updated');
+      stableHorsesRef.current = horses;
+      lastHorsesHashRef.current = horsesHash;
+    }
+    
+    return stableHorsesRef.current;
   }, [horses]);
 
-  // Get horse statistics - memoized to prevent unnecessary recalculations
+  // Get horse statistics - cached to prevent unnecessary recalculations
   const horseStats = useMemo(() => getStoredHorseStats(), []);
 
-  // SIMPLIFIED: Basic sorting without complex stability checks
+  // STABLE sorting without complex stability checks
   const sortedHorses = useMemo(() => {
     if (!stableHorses || stableHorses.length === 0) return [];
     
@@ -77,8 +93,8 @@ export default function HorseLineup({
     }
   };
 
-  // SIMPLIFIED: Remove complex memoization that causes flickering
-  const getFormDisplay = (horseName: string) => {
+  // STABLE form display without complex memoization
+  const getFormDisplay = useCallback((horseName: string) => {
     const stats = horseStats[horseName];
     if (!stats || stats.recentForm.length === 0) {
       return <span className="text-white/40 text-xs">No form</span>;
@@ -101,9 +117,9 @@ export default function HorseLineup({
         ))}
       </div>
     );
-  };
+  }, [horseStats]);
 
-  const getWinsDisplay = (horseName: string) => {
+  const getWinsDisplay = useCallback((horseName: string) => {
     const stats = horseStats[horseName];
     if (!stats) {
       return <span className="text-white/40 text-xs">0 wins</span>;
@@ -115,7 +131,7 @@ export default function HorseLineup({
         <span className="text-yellow-300 text-xs font-bold">{stats.wins}</span>
       </div>
     );
-  };
+  }, [horseStats]);
 
   return (
     <div className="w-full h-[600px] relative overflow-hidden">
@@ -127,7 +143,7 @@ export default function HorseLineup({
 
       <div className="relative z-10 p-3 h-full flex flex-col">
         <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-xl border border-white/10 shadow-2xl p-4 h-full flex flex-col">
-          {/* SIMPLIFIED: Direct rendering without complex memoization */}
+          {/* STABLE rendering with consistent keys */}
           <div className="flex-1 flex flex-col justify-between min-h-0 gap-1">
             {sortedHorses.map((horse, index) => {
               const rank = getHorseRank(horse.elo);
@@ -135,16 +151,13 @@ export default function HorseLineup({
               const serverOdds = horse.odds || 5.0;
               
               return (
-                <motion.div
-                  key={horse.id} // Simple key based on horse ID
+                <div
+                  key={`${horse.id}-${horse.name}`} // Stable composite key
                   className={`p-2 rounded-md transition-all duration-300 backdrop-blur-sm flex-1 max-h-[65px] ${
                     selectedBet?.horseId === horse.id
                       ? "bg-gradient-to-r from-emerald-500/30 to-blue-500/30 border border-emerald-400/50 shadow-lg shadow-emerald-500/20"
                       : "bg-white/5 border border-white/10"
                   }`}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.05 }}
                 >
                   <div className="flex items-center gap-1.5 mb-1">
                     <div className="flex items-center gap-1">
@@ -205,7 +218,7 @@ export default function HorseLineup({
                       {getWinsDisplay(horse.name)}
                     </div>
                   </div>
-                </motion.div>
+                </div>
               );
             })}
           </div>

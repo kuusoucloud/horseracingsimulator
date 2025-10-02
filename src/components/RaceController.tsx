@@ -37,6 +37,24 @@ export default function RaceController({
     placement?: number;
   }>>([]);
 
+  // Manual race start function
+  const startNewRace = async () => {
+    if (!supabase) return;
+    
+    try {
+      console.log('🏇 Starting new race manually...');
+      const { error } = await supabase.rpc('manual_start_new_race');
+      
+      if (error) {
+        console.error('❌ Error starting new race:', error);
+      } else {
+        console.log('✅ New race started successfully!');
+      }
+    } catch (error) {
+      console.error('❌ Error calling start new race:', error);
+    }
+  };
+
   // Initialize finish line detector
   useEffect(() => {
     console.log('🏁 Initializing 3D finish line detector...');
@@ -265,10 +283,16 @@ export default function RaceController({
           )}
 
           {raceState === "finished" && (
-            <div className="mt-3">
+            <div className="mt-3 space-y-2">
               <div className="text-xs font-semibold text-white bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
                 Race Complete!
               </div>
+              <button
+                onClick={startNewRace}
+                className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-bold text-sm hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-lg"
+              >
+                🏇 Start New Race
+              </button>
             </div>
           )}
         </div>

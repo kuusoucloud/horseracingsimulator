@@ -166,6 +166,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      manual_start_new_race: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       start_new_race: {
         Args: Record<PropertyKey, never>
         Returns: undefined
