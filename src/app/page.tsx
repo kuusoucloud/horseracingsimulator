@@ -26,7 +26,8 @@ export default function Home() {
     getWeatherConditions,
     shouldShowPhotoFinish,
     shouldShowResults,
-    getPhotoFinishResults
+    getPhotoFinishResults,
+    forceUnlockWaiting // NEW: Manual unlock function
   } = useRaceSync();
   
   // Client-side hydration state
@@ -261,11 +262,14 @@ export default function Home() {
             You've connected during an active race. Please wait for the current race to finish 
             and a new race to begin.
           </p>
-          <div className="flex items-center justify-center space-x-2 text-orange-600">
+          <div className="flex items-center justify-center space-x-2 text-orange-600 mb-6">
             <div className="animate-bounce">⏳</div>
             <span className="font-medium">Waiting for next race...</span>
             <div className="animate-bounce" style={{ animationDelay: '0.1s' }}>⏳</div>
           </div>
+          <p className="text-sm text-orange-600">
+            Auto-unlock after 60 seconds if stuck
+          </p>
         </div>
       </div>
     );

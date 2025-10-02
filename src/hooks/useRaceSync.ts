@@ -37,6 +37,7 @@ export function useRaceSync() {
   
   // Use ref to track waiting state for subscription callback
   const isWaitingRef = useRef(false);
+  const waitingStartTime = useRef<number>(0);
   
   // Multiplayer-style smooth horses with client prediction
   const [smoothHorses, setSmoothHorses] = useState<SmoothHorse[]>([]);
@@ -49,6 +50,11 @@ export function useRaceSync() {
   // Sync waiting state with ref
   useEffect(() => {
     isWaitingRef.current = isWaitingForNewRace;
+    if (isWaitingForNewRace && waitingStartTime.current === 0) {
+      waitingStartTime.current = Date.now();
+    } else if (!isWaitingForNewRace) {
+      waitingStartTime.current = 0;
+    }
   }, [isWaitingForNewRace]);
 
   // Initialize and load current race state
@@ -165,13 +171,22 @@ export function useRaceSync() {
             
             // HANDLE MID-RACE CONNECTION: Use ref to get current waiting state
             if (isWaitingRef.current) {
-              if (raceDataFromDB.race_state === 'pre-race' || raceDataFromDB.race_state === 'finished') {
+              // Check if we've been waiting too long (60 seconds) - auto-unlock
+              const waitingDuration = Date.now() - waitingStartTime.current;
+              const maxWaitTime = 60000; // 60 seconds
+              
+              if (waitingDuration > maxWaitTime) {
+                console.log('⏰ Auto-unlocking client after 60 seconds of waiting');
+                setIsWaitingForNewRace(false);
+                isWaitingRef.current = false;
+                setRaceData(raceDataFromDB);
+              } else if (raceDataFromDB.race_state === 'pre-race' || raceDataFromDB.race_state === 'finished') {
                 console.log('✅ New race started - client can now participate');
                 setIsWaitingForNewRace(false);
                 isWaitingRef.current = false;
                 setRaceData(raceDataFromDB);
               } else {
-                console.log(`🚫 Still waiting for new race - current state: ${raceDataFromDB.race_state}`);
+                console.log(`🚫 Still waiting for new race - current state: ${raceDataFromDB.race_state} (${Math.round(waitingDuration/1000)}s)`);
                 return; // Ignore updates while waiting
               }
             } else {
@@ -451,6 +466,14 @@ export function useRaceSync() {
     return raceData?.photo_finish_results || [];
   }, [raceData?.photo_finish_results]);
 
+  // Manual unlock function for stuck clients
+  const forceUnlockWaiting = useCallback(() => {
+    console.log('🔓 Manually unlocking waiting client');
+    setIsWaitingForNewRace(false);
+    isWaitingRef.current = false;
+    waitingStartTime.current = 0;
+  }, []);
+
   return {
     // Core state
     raceData,
@@ -467,6 +490,7 @@ export function useRaceSync() {
     shouldShowPhotoFinish,
     shouldShowResults,
     getPhotoFinishResults,
+    forceUnlockWaiting, // New function to manually unlock stuck clients
     
     // Legacy compatibility (for existing components)
     syncedData: raceData,
