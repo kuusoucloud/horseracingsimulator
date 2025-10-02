@@ -70,16 +70,16 @@ export default function RaceController({
           result.placement = index + 1;
         });
         
-        console.log(`🏁 Current 3D finish order:`, finishLineResults.current);
+        console.log(`🏁 Current 3D finish order (${finishLineResults.current.length}/8):`, finishLineResults.current);
         
-        // If we have top 3 finishers, trigger photo finish
-        if (finishLineResults.current.length >= 3) {
-          console.log('📸 Top 3 horses finished, triggering photo finish...');
+        // WAIT FOR ALL 8 HORSES TO FINISH before ending race
+        if (finishLineResults.current.length >= 8) {
+          console.log('🏆 ALL 8 horses finished! Triggering race completion...');
           
-          // Get top 3 for photo finish
-          const top3 = finishLineResults.current.slice(0, 3);
+          // Get all results for complete race finish
+          const allResults = finishLineResults.current;
           
-          // Update race state with real 3D detector results
+          // Update race state with complete 3D detector results
           if (supabase) {
             // Get the current race ID from the database
             supabase
@@ -94,20 +94,20 @@ export default function RaceController({
                   return;
                 }
 
-                // Update the current race with 3D detector results
+                // Update the current race with complete 3D detector results
                 return supabase
                   .from('race_state')
                   .update({
                     race_state: 'finished',
                     show_photo_finish: true,
                     show_results: true,
-                    race_results: top3.map(r => ({
+                    race_results: allResults.map(r => ({
                       id: r.horseId,
                       name: r.horseName,
                       placement: r.placement,
                       finishTime: r.finishTime
                     })),
-                    photo_finish_results: top3.map(r => ({
+                    photo_finish_results: allResults.slice(0, 3).map(r => ({
                       id: r.horseId,
                       name: r.horseName,
                       placement: r.placement,
@@ -120,10 +120,12 @@ export default function RaceController({
                 if (result?.error) {
                   console.error('❌ Error updating race with 3D results:', result.error);
                 } else {
-                  console.log('✅ Race updated with real 3D finish line results!');
+                  console.log('✅ Race updated with complete 3D finish line results!');
                 }
               });
           }
+        } else {
+          console.log(`⏳ Waiting for more horses to finish (${finishLineResults.current.length}/8 finished)`);
         }
       },
       reset: () => {

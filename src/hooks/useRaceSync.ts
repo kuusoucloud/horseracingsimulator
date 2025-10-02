@@ -350,17 +350,17 @@ export function useRaceSync() {
     }
   }, [raceData?.race_state, raceData?.horses, smoothHorses.length]);
 
-  // OPTIMIZED server timer - Reduced frequency for better performance
+  // OPTIMIZED server timer - Call the correct race tick function
   useEffect(() => {
     if (!supabase || !isConnected) return;
 
-    console.log('⚡ Starting optimized race timer (20fps)...');
+    console.log('⚡ Starting race timer with update_race_tick...');
     
     timerInterval.current = setInterval(async () => {
       try {
-        // Call database function at reasonable frequency
+        // Call the correct database function that waits for all horses
         if (supabase) {
-          const { error } = await supabase.rpc('update_race_state_high_frequency');
+          const { error } = await supabase.rpc('update_race_tick');
           
           if (error) {
             console.error('❌ Update error:', error);
@@ -369,7 +369,7 @@ export function useRaceSync() {
       } catch (error) {
         console.error('❌ Timer error:', error);
       }
-    }, 50); // 50ms = 20fps server updates (still smooth but much more efficient)
+    }, 100); // 100ms = 10fps server updates
 
     return () => {
       if (timerInterval.current) {
