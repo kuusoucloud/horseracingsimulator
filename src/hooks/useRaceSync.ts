@@ -170,42 +170,6 @@ export function useRaceSync() {
     };
   }, [isConnected]);
 
-  // SIMPLE SERVER AUTOMATION TRIGGER - Call race automation edge function
-  useEffect(() => {
-    if (!supabase || !isConnected) return;
-
-    console.log('🤖 Starting race automation trigger...');
-    
-    const triggerRaceAutomation = async () => {
-      if (!supabase) return; // Add null check here
-      
-      try {
-        // Call the race automation edge function
-        const { data, error } = await supabase.functions.invoke('race-automation', {
-          body: {}
-        });
-        
-        if (error) {
-          console.error('❌ Race automation error:', error);
-        } else {
-          console.log('✅ Race automation triggered successfully');
-        }
-      } catch (error) {
-        console.error('❌ Race automation trigger error:', error);
-      }
-    };
-
-    // Trigger race automation every 100ms
-    raceTickInterval.current = setInterval(triggerRaceAutomation, 100);
-
-    return () => {
-      if (raceTickInterval.current) {
-        clearInterval(raceTickInterval.current);
-        raceTickInterval.current = null;
-      }
-    };
-  }, [isConnected]);
-
   // Set up real-time subscription
   useEffect(() => {
     if (!supabase || !isConnected) return;
