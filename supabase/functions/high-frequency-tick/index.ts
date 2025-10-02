@@ -23,8 +23,8 @@ Deno.serve(async (req) => {
 
     console.log('⚡ High-frequency race tick started at', new Date().toISOString())
 
-    // Call the race tick function for high-frequency updates
-    const { error: tickError } = await supabase.rpc('update_race_tick')
+    // Call the continuous race tick function for high-frequency updates
+    const { error: tickError } = await supabase.rpc('ensure_continuous_race_tick')
     
     if (tickError) {
       console.error('❌ High-frequency tick error:', tickError)

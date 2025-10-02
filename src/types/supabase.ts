@@ -194,6 +194,10 @@ export type Database = {
         Args: { all_elos: number[]; horse_elo: number }
         Returns: number
       }
+      ensure_continuous_race_tick: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       ensure_race_running: {
         Args: Record<PropertyKey, never>
         Returns: undefined
