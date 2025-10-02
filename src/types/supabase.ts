@@ -23,6 +23,7 @@ export type Database = {
           recent_form: number[]
           total_races: number
           updated_at: string | null
+          velocity: number | null
           wins: number
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           recent_form?: number[]
           total_races?: number
           updated_at?: string | null
+          velocity?: number | null
           wins?: number
         }
         Update: {
@@ -43,6 +45,7 @@ export type Database = {
           recent_form?: number[]
           total_races?: number
           updated_at?: string | null
+          velocity?: number | null
           wins?: number
         }
         Relationships: []
@@ -155,6 +158,10 @@ export type Database = {
       generate_race_horses: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      race_tick: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       start_new_race: {
         Args: Record<PropertyKey, never>

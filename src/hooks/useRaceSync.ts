@@ -157,6 +157,39 @@ export function useRaceSync() {
     };
   }, [isConnected]);
 
+  // HIGH-FREQUENCY SERVER TICK SYSTEM - calls server every 100ms during racing
+  useEffect(() => {
+    if (!raceData || raceData.race_state !== 'racing') {
+      return;
+    }
+
+    console.log('🏇 Starting high-frequency server tick system...');
+    
+    const tickInterval = setInterval(async () => {
+      try {
+        // Call the high-frequency tick function
+        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/supabase-functions-high-frequency-tick`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          console.error('High-frequency tick failed:', response.status);
+        }
+      } catch (error) {
+        console.error('High-frequency tick error:', error);
+      }
+    }, 100); // 100ms = 10 FPS
+
+    return () => {
+      clearInterval(tickInterval);
+      console.log('🏇 Stopped high-frequency server tick system');
+    };
+  }, [raceData?.race_state]);
+
   // OPTIMIZED VISUAL UPDATE SYSTEM - Much more efficient
   useEffect(() => {
     if (!raceData || raceData.race_state !== 'racing') {
