@@ -16,21 +16,26 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_KEY')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')! // Fixed env var name
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Use the new database function that waits for all horses to finish
+    console.log('🎯 Race tick function called at', new Date().toISOString())
+
+    // Use the race tick function
     const { error: tickError } = await supabase.rpc('update_race_tick')
 
     if (tickError) {
+      console.error('❌ Race tick error:', tickError)
       throw new Error('Race tick function error: ' + tickError.message)
     }
+
+    console.log('✅ Race tick completed successfully')
 
     // Get updated race state to return status
     const { data: raceData, error: raceError } = await supabase
       .from('race_state')
-      .select('race_state, timer, race_results')
+      .select('race_state, race_timer, race_results')
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
@@ -41,9 +46,9 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'Race tick processed - waiting for all horses to finish',
+        message: 'Race tick processed successfully',
         raceState: raceData?.race_state || 'unknown',
-        timer: raceData?.timer || 0,
+        raceTimer: raceData?.race_timer || 0,
         finishedHorses,
         raceComplete: isRaceComplete,
         timestamp: new Date().toISOString()
@@ -55,11 +60,12 @@ Deno.serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Race tick error:', error)
+    console.error('❌ Race tick error:', error)
     return new Response(
       JSON.stringify({ 
         error: 'Race tick error', 
-        details: error.message 
+        details: error.message,
+        timestamp: new Date().toISOString()
       }),
       { 
         status: 500, 
