@@ -13,6 +13,7 @@ interface RaceControllerProps {
   preRaceTimer?: number;
   countdownTimer?: number;
   raceTimer?: number;
+  isWaitingForNewRace?: boolean; // Add prop for mid-race blocking
 }
 
 export default function RaceController({
@@ -20,7 +21,8 @@ export default function RaceController({
   raceState,
   preRaceTimer = 0,
   countdownTimer = 0,
-  raceTimer = 0
+  raceTimer = 0,
+  isWaitingForNewRace = false // Add prop with default
 }: RaceControllerProps) {
   // Client-side timer for smooth countdown
   const [clientTimer, setClientTimer] = useState(preRaceTimer);
@@ -218,8 +220,12 @@ export default function RaceController({
     };
   }, [raceState, clientTimer, clientCountdown]);
 
-  // Display timer based on race state
+  // Display timer based on race state and waiting status
   const getTimerDisplay = () => {
+    if (isWaitingForNewRace) {
+      return "🚫 Race in Progress - Waiting for Next Race";
+    }
+    
     if (raceState === "pre-race" && clientTimer > 0) {
       return `⏱️ Starting in ${clientTimer}s`;
     } else if (raceState === "pre-race") {
@@ -234,6 +240,10 @@ export default function RaceController({
   };
 
   const getTimerNumber = () => {
+    if (isWaitingForNewRace) {
+      return null; // No countdown when waiting
+    }
+    
     if (raceState === "pre-race" && clientTimer > 0) {
       return clientTimer;
     } else if (raceState === "countdown" && clientCountdown > 0) {
@@ -246,22 +256,47 @@ export default function RaceController({
     <div className="w-full h-full min-h-[200px] relative overflow-hidden">
       {/* Glassmorphism container */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl">
-        {/* Animated gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-green-500/10 rounded-xl" />
+        {/* Animated gradient overlay - red tint when waiting */}
+        <div className={`absolute inset-0 rounded-xl ${
+          isWaitingForNewRace 
+            ? "bg-gradient-to-br from-red-500/20 via-orange-500/10 to-yellow-500/10" 
+            : "bg-gradient-to-br from-amber-500/10 via-transparent to-green-500/10"
+        }`} />
         
-        {/* Glow effects */}
-        <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/20 via-green-500/20 to-emerald-500/20 rounded-xl blur-xl opacity-50" />
+        {/* Glow effects - red when waiting */}
+        <div className={`absolute -inset-1 rounded-xl blur-xl opacity-50 ${
+          isWaitingForNewRace
+            ? "bg-gradient-to-r from-red-500/30 via-orange-500/20 to-yellow-500/20"
+            : "bg-gradient-to-r from-amber-500/20 via-green-500/20 to-emerald-500/20"
+        }`} />
       </div>
       
       <div className="relative z-10 p-4 h-full flex flex-col items-center justify-center space-y-4">
         <div className="text-center">
           <div className={`px-4 py-3 rounded-lg font-bold text-sm transition-all duration-300 w-full ${
-            raceState === "pre-race" && clientTimer === 0
-              ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg"
-              : "bg-gray-400 text-gray-700"
+            isWaitingForNewRace
+              ? "bg-gradient-to-r from-red-500 to-orange-600 text-white shadow-lg animate-pulse"
+              : raceState === "pre-race" && clientTimer === 0
+                ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg"
+                : "bg-gray-400 text-gray-700"
           }`}>
             {getTimerDisplay()}
           </div>
+          
+          {/* Mid-race blocking message */}
+          {isWaitingForNewRace && (
+            <div className="mt-3 space-y-2">
+              <div className="text-lg font-bold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent animate-pulse">
+                ⏳ Please Wait
+              </div>
+              <div className="text-xs text-white/80 bg-red-500/20 px-3 py-2 rounded-lg border border-red-400/30">
+                You connected during an active race. You'll be able to participate in the next race.
+              </div>
+              <div className="text-xs text-white/60">
+                Races run continuously - the next one will start soon!
+              </div>
+            </div>
+          )}
           
           {/* Client-side smooth timer displays */}
           {getTimerNumber() && (
@@ -274,7 +309,7 @@ export default function RaceController({
             </div>
           )}
           
-          {raceState === "racing" && (
+          {raceState === "racing" && !isWaitingForNewRace && (
             <div className="mt-3">
               <div className="text-xs font-semibold text-white bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
                 Race Time: {raceTimer}s
@@ -282,7 +317,7 @@ export default function RaceController({
             </div>
           )}
 
-          {raceState === "finished" && (
+          {raceState === "finished" && !isWaitingForNewRace && (
             <div className="mt-3 space-y-2">
               <div className="text-xs font-semibold text-white bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
                 Race Complete!
@@ -293,10 +328,16 @@ export default function RaceController({
 
         {/* Timer status indicator */}
         <div className="text-center">
-          <div className="text-xs text-white/70 bg-gradient-to-r from-green-400/20 to-blue-400/20 px-3 py-1 rounded-full border border-white/10">
-            {raceState === "pre-race" || raceState === "countdown" 
-              ? "⏰ Client Timer (Synced with Server)"
-              : "🖥️ Server Controlled"
+          <div className={`text-xs px-3 py-1 rounded-full border ${
+            isWaitingForNewRace
+              ? "text-red-300 bg-gradient-to-r from-red-400/20 to-orange-400/20 border-red-400/30"
+              : "text-white/70 bg-gradient-to-r from-green-400/20 to-blue-400/20 border-white/10"
+          }`}>
+            {isWaitingForNewRace
+              ? "🚫 Mid-Race Connection Blocked"
+              : raceState === "pre-race" || raceState === "countdown" 
+                ? "⏰ Client Timer (Synced with Server)"
+                : "🖥️ Server Controlled"
             }
           </div>
         </div>

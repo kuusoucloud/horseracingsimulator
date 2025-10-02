@@ -343,6 +343,7 @@ export default function Home() {
               preRaceTimer={preRaceTimer}
               countdownTimer={countdownTimer}
               raceTimer={raceTimer}
+              isWaitingForNewRace={isWaitingForNewRace} // Pass waiting state
             />
           </div>
         </div>
