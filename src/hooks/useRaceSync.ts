@@ -72,20 +72,33 @@ export function useRaceSync() {
 
         // Load current race state
         if (supabase) {
-          const { data: currentRace, error } = await supabase
+          const { data: raceData, error: raceError } = await supabase
             .from('race_state')
-            .select('*')
+            .select(`
+              *,
+              race_state,
+              pre_race_timer,
+              countdown_timer,
+              race_timer,
+              results_countdown,
+              weather_condition,
+              time_of_day,
+              show_photo_finish,
+              show_results,
+              race_results,
+              photo_finish_results
+            `)
             .order('created_at', { ascending: false })
             .limit(1)
-            .maybeSingle();
+            .single();
 
-          if (error) {
-            console.error('❌ Error loading race:', error);
-          } else if (currentRace) {
-            console.log('🏇 Loaded race:', currentRace.race_state);
+          if (raceError) {
+            console.error('❌ Error loading race:', raceError);
+          } else if (raceData) {
+            console.log('🏇 Loaded race:', raceData.race_state);
             
             // CHECK: If connecting mid-race, block the client and wait for new race
-            if (currentRace.race_state === 'racing' || currentRace.race_state === 'countdown') {
+            if (raceData.race_state === 'racing' || raceData.race_state === 'countdown') {
               console.log('🚫 Client connected mid-race - waiting for next race to start');
               setIsWaitingForNewRace(true);
               isWaitingRef.current = true;
@@ -93,20 +106,20 @@ export function useRaceSync() {
             } else {
               // Type-safe conversion from database row to RaceData
               const raceDataFromDB: RaceData = {
-                id: currentRace.id,
-                race_state: currentRace.race_state as RaceState,
-                horses: (currentRace.horses as any) || [],
-                race_progress: (currentRace.race_progress as any) || {},
-                pre_race_timer: currentRace.pre_race_timer || 0,
-                countdown_timer: currentRace.countdown_timer || undefined,
-                race_timer: currentRace.race_timer || undefined,
-                race_start_time: currentRace.race_start_time || undefined,
-                race_results: (currentRace.race_results as any) || [],
-                show_photo_finish: currentRace.show_photo_finish || false,
-                show_results: currentRace.show_results || false,
-                photo_finish_results: (currentRace.photo_finish_results as any) || [],
-                weather_conditions: (currentRace.weather_conditions as any) || undefined,
-                timer_owner: currentRace.timer_owner || undefined,
+                id: raceData.id,
+                race_state: raceData.race_state as RaceState,
+                horses: (raceData.horses as any) || [],
+                race_progress: (raceData.race_progress as any) || {},
+                pre_race_timer: raceData.pre_race_timer || 0,
+                countdown_timer: raceData.countdown_timer || undefined,
+                race_timer: raceData.race_timer || undefined,
+                race_start_time: raceData.race_start_time || undefined,
+                race_results: (raceData.race_results as any) || [],
+                show_photo_finish: raceData.show_photo_finish || false,
+                show_results: raceData.show_results || false,
+                photo_finish_results: (raceData.photo_finish_results as any) || [],
+                weather_conditions: (raceData.weather_conditions as any) || undefined,
+                timer_owner: raceData.timer_owner || undefined,
               };
               setRaceData(raceDataFromDB);
               setIsWaitingForNewRace(false);
@@ -368,10 +381,12 @@ export function useRaceSync() {
         return raceData.countdown_timer || 0;
       case 'racing':
         return raceData.race_timer || 0;
+      case 'finished':
+        return raceData.results_countdown || 0; // Return results countdown for finished state
       default:
         return 0;
     }
-  }, [raceData?.race_state, raceData?.pre_race_timer, raceData?.countdown_timer, raceData?.race_timer]);
+  }, [raceData?.race_state, raceData?.pre_race_timer, raceData?.countdown_timer, raceData?.race_timer, raceData?.results_countdown]);
 
   const getRaceResults = useCallback(() => {
     return raceData?.race_results || [];

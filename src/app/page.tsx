@@ -56,6 +56,7 @@ export default function Home() {
   const countdownTimer = raceState === 'countdown' ? timer : 0;
   const raceTimer = raceState === 'racing' ? timer : 0;
   const resultsTimer = raceState === 'finished' ? timer : 0; // Add results timer
+  const resultsCountdown = raceState === 'finished' ? timer : 0; // Add results countdown for RaceController
   
   // Server-managed UI states
   const showPhotoFinishFromServer = shouldShowPhotoFinish();
@@ -333,20 +334,19 @@ export default function Home() {
             <EloLeaderboard refreshTrigger={eloRefreshTrigger} />
           </div>
           
-          {/* Race Controller - now just displays server state */}
-          <div className="lg:col-span-1">
-            <RaceController
-              horses={horses}
-              onRaceProgress={handleRaceProgress}
-              onRaceComplete={handleRaceComplete}
-              onRaceStateChange={handleRaceStateChange}
-              raceState={raceState}
-              preRaceTimer={preRaceTimer}
-              countdownTimer={countdownTimer}
-              raceTimer={raceTimer}
-              isWaitingForNewRace={isWaitingForNewRace} // Pass waiting state
-            />
-          </div>
+          {/* Race Controller */}
+          <RaceController
+            horses={horses}
+            raceState={raceState}
+            preRaceTimer={preRaceTimer}
+            countdownTimer={countdownTimer}
+            raceTimer={raceTimer}
+            resultsCountdown={resultsCountdown}
+            isWaitingForNewRace={isWaitingForNewRace}
+            onRaceProgress={() => console.log('Race progress')}
+            onRaceComplete={() => console.log('Race complete')}
+            onRaceStateChange={() => console.log('Race state change')}
+          />
         </div>
       </div>
 

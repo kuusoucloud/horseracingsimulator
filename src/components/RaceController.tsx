@@ -13,6 +13,7 @@ interface RaceControllerProps {
   preRaceTimer?: number;
   countdownTimer?: number;
   raceTimer?: number;
+  resultsCountdown?: number; // Add results countdown prop
   isWaitingForNewRace?: boolean; // Add prop for mid-race blocking
 }
 
@@ -25,13 +26,16 @@ export default function RaceController({
   preRaceTimer,
   countdownTimer,
   raceTimer,
+  resultsCountdown, // Add results countdown parameter
   isWaitingForNewRace
 }: RaceControllerProps) {
   // Client-side timer for smooth countdown
   const [clientTimer, setClientTimer] = useState(0);
   const [clientCountdown, setClientCountdown] = useState(0);
+  const [clientResultsCountdown, setClientResultsCountdown] = useState(0); // Add client results countdown
   const lastServerTimer = useRef(0);
   const lastServerCountdown = useRef(0);
+  const lastServerResultsCountdown = useRef(0); // Add server results countdown ref
   const clientInterval = useRef<NodeJS.Timeout | null>(null);
 
   // 3D Finish Line Detector System
@@ -170,6 +174,15 @@ export default function RaceController({
     }
   }, [countdownTimer]);
 
+  // Sync with server results countdown when it changes
+  useEffect(() => {
+    if (resultsCountdown !== undefined && resultsCountdown !== lastServerResultsCountdown.current) {
+      console.log(`⏰ Server results countdown update: ${resultsCountdown}`);
+      setClientResultsCountdown(resultsCountdown);
+      lastServerResultsCountdown.current = resultsCountdown;
+    }
+  }, [resultsCountdown]);
+
   // Client-side countdown for smooth updates
   useEffect(() => {
     if (clientInterval.current) {
@@ -196,6 +209,17 @@ export default function RaceController({
           return prev - 1;
         });
       }, 1000);
+    } else if (raceState === "finished" && clientResultsCountdown > 0) {
+      // Add results countdown timer
+      clientInterval.current = setInterval(() => {
+        setClientResultsCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(clientInterval.current!);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
 
     return () => {
@@ -203,7 +227,7 @@ export default function RaceController({
         clearInterval(clientInterval.current);
       }
     };
-  }, [raceState, clientTimer, clientCountdown]);
+  }, [raceState, clientTimer, clientCountdown, clientResultsCountdown]);
 
   // Display timer based on race state and waiting status
   const getTimerDisplay = () => {
@@ -219,6 +243,8 @@ export default function RaceController({
       return `🏁 Starting in ${clientCountdown}s`;
     } else if (raceState === "racing") {
       return "🏇 Racing";
+    } else if (raceState === "finished" && clientResultsCountdown > 0) {
+      return `🏆 New Race in ${clientResultsCountdown}s`;
     } else {
       return "🏆 Finished";
     }
@@ -233,6 +259,8 @@ export default function RaceController({
       return clientTimer;
     } else if (raceState === "countdown" && clientCountdown > 0) {
       return clientCountdown;
+    } else if (raceState === "finished" && clientResultsCountdown > 0) {
+      return clientResultsCountdown; // Show results countdown
     }
     return null;
   };
@@ -287,9 +315,15 @@ export default function RaceController({
 
           {raceState === "finished" && !isWaitingForNewRace && (
             <div className="mt-3 space-y-2">
-              <div className="text-xs font-semibold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
-                Race Complete!
-              </div>
+              {clientResultsCountdown > 0 ? (
+                <div className="text-xs font-semibold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+                  🏆 Next Race Starting Soon!
+                </div>
+              ) : (
+                <div className="text-xs font-semibold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+                  Race Complete!
+                </div>
+              )}
             </div>
           )}
         </div>
