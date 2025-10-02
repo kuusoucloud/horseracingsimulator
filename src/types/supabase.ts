@@ -162,6 +162,10 @@ export type Database = {
         }
         Returns: number
       }
+      calculate_elo_odds: {
+        Args: { all_horse_elos: number[]; horse_elo: number }
+        Returns: number
+      }
       generate_race_horses: {
         Args: Record<PropertyKey, never>
         Returns: Json
