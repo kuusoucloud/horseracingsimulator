@@ -1,193 +1,322 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { generateRandomHorses } from './horses.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
-Deno.serve(async (req) => {
-  console.log(`📡 Race server called with ${req.method}`)
+// Global race automation state
+let isAutomationRunning = false;
+let automationInterval: number | null = null;
 
-  // Handle CORS preflight
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
-      headers: corsHeaders,
-      status: 200 
-    });
+    return new Response('ok', { headers: corsHeaders, status: 200 });
   }
 
   try {
-    // Validate environment variables
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('❌ Missing Supabase environment variables')
-      return new Response(
-        JSON.stringify({ error: 'Server configuration error' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const supabaseClient = createClient(supabaseUrl, supabaseKey)
+    const { action } = await req.json().catch(() => ({ action: 'tick' }));
 
-    // Check for existing race
-    const { data: existingRace, error: fetchError } = await supabaseClient
-      .from('race_state')
-      .select('*')
-      .limit(1)
-      .maybeSingle()
-
-    if (fetchError) {
-      console.error('❌ Database fetch error:', fetchError)
-      return new Response(
-        JSON.stringify({ error: 'Database error', details: fetchError.message }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // If no race or race finished, create new one
-    if (!existingRace || existingRace.race_state === 'finished') {
-      console.log('🏇 Creating new race with balanced ELO-based odds...')
-      
-      try {
-        // Generate horses with current ELO ratings and balanced odds
-        const newHorses = await generateRandomHorses(8, supabaseClient)
+    if (action === 'start_automation') {
+      if (!isAutomationRunning) {
+        console.log('🤖 Starting continuous race automation...');
+        isAutomationRunning = true;
         
-        // Map to race format
-        const raceHorses = newHorses.map((horse, index) => ({
-          id: horse.id,
-          name: horse.name,
-          elo: horse.elo,
-          odds: horse.odds,
-          position: 0,
-          lane: index + 1,
-          finishTime: null,
-          placement: null
-        }))
-        
-        console.log('🏇 Generated horses with ELO-based odds:')
-        raceHorses.forEach(horse => {
-          console.log(`  ${horse.name}: ELO ${horse.elo} → Odds ${horse.odds}`)
-        })
-        
-        const weatherConditions = {
-          timeOfDay: "day",
-          weather: "clear", 
-          skyColor: "#87ceeb",
-          ambientIntensity: 0.4,
-          directionalIntensity: 1.0,
-          trackColor: "#8B4513",
-          grassColor: "#32cd32"
-        }
-
-        const newRaceData = {
-          race_state: 'pre-race',
-          horses: raceHorses,
-          race_progress: {},
-          pre_race_timer: 10,
-          countdown_timer: 0,
-          race_timer: 0,
-          race_start_time: null,
-          race_results: [],
-          show_photo_finish: false,
-          show_results: false,
-          photo_finish_results: [],
-          weather_conditions: weatherConditions,
-          timer_owner: 'server'
-        }
-
-        // Delete old race if exists
-        if (existingRace) {
-          const { error: deleteError } = await supabaseClient
-            .from('race_state')
-            .delete()
-            .eq('id', existingRace.id)
-          
-          if (deleteError) {
-            console.error('❌ Failed to delete old race:', deleteError)
+        // Start continuous automation
+        automationInterval = setInterval(async () => {
+          try {
+            await runRaceTick(supabase);
+          } catch (error) {
+            console.error('❌ Automation tick error:', error);
           }
-        }
-
-        // Insert new race
-        const { data: newRace, error: insertError } = await supabaseClient
-          .from('race_state')
-          .insert([newRaceData])
-          .select()
-          .single()
-
-        if (insertError) {
-          console.error('❌ Failed to create race:', insertError)
-          return new Response(
-            JSON.stringify({ error: 'Failed to create race', details: insertError.message }),
-            { 
-              status: 500, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          )
-        }
-
-        console.log('✅ New race created successfully with balanced ELO-based odds')
+        }, 100); // 100ms intervals
+        
         return new Response(
-          JSON.stringify({ 
-            success: true,
-            message: 'New race created with balanced ELO-based odds',
-            race_id: newRace.id,
-            horses: raceHorses.length,
-            state: 'pre-race',
-            odds_summary: raceHorses.map(h => ({ name: h.name, elo: h.elo, odds: h.odds }))
-          }),
-          { 
-            status: 200, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
-      } catch (horseError) {
-        console.error('❌ Error generating horses:', horseError)
+          JSON.stringify({ success: true, message: 'Race automation started' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
         return new Response(
-          JSON.stringify({ error: 'Failed to generate race data', details: horseError.message }),
-          { 
-            status: 500, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
+          JSON.stringify({ success: true, message: 'Race automation already running' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-    } else {
-      console.log('🏇 Race already exists:', existingRace.race_state)
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          message: 'Race already exists',
-          race_id: existingRace.id,
-          state: existingRace.race_state
-        }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
     }
 
-  } catch (error) {
-    console.error('❌ Race server error:', error)
+    if (action === 'stop_automation') {
+      if (automationInterval) {
+        clearInterval(automationInterval);
+        automationInterval = null;
+      }
+      isAutomationRunning = false;
+      console.log('🛑 Race automation stopped');
+      
+      return new Response(
+        JSON.stringify({ success: true, message: 'Race automation stopped' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Default action: single tick
+    await runRaceTick(supabase);
+    
     return new Response(
       JSON.stringify({ 
-        error: 'Server error', 
-        details: error.message,
-        stack: error.stack 
+        success: true, 
+        message: 'Race tick completed',
+        automationRunning: isAutomationRunning,
+        timestamp: new Date().toISOString()
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('❌ Race server error:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: 'Race server error', 
+        details: error.message,
+        timestamp: new Date().toISOString()
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
-})
+});
+
+async function runRaceTick(supabase: any) {
+  console.log('🎯 Race tick at', new Date().toISOString());
+
+  // Get current race
+  const { data: currentRace, error: raceError } = await supabase
+    .from('race_state')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (raceError) {
+    console.error('❌ Error fetching race:', raceError);
+    return;
+  }
+
+  const now = new Date();
+  
+  // If no race exists, create one
+  if (!currentRace) {
+    console.log('🆕 Creating new race...');
+    await createNewRace(supabase);
+    return;
+  }
+
+  const raceAge = (now.getTime() - new Date(currentRace.created_at).getTime()) / 1000;
+
+  // Handle pre-race state (10 seconds)
+  if (currentRace.race_state === 'pre-race') {
+    const newTimer = Math.max(0, 10 - Math.floor(raceAge));
+    
+    await supabase
+      .from('race_state')
+      .update({ 
+        pre_race_timer: newTimer,
+        updated_at: now.toISOString()
+      })
+      .eq('id', currentRace.id);
+
+    if (raceAge >= 10) {
+      console.log('⏰ Pre-race complete, starting countdown...');
+      await supabase
+        .from('race_state')
+        .update({
+          race_state: 'countdown',
+          countdown_timer: 5,
+          countdown_start_time: now.toISOString(),
+          updated_at: now.toISOString()
+        })
+        .eq('id', currentRace.id);
+    }
+    return;
+  }
+
+  // Handle countdown state (5 seconds)
+  if (currentRace.race_state === 'countdown') {
+    const countdownStart = new Date(currentRace.countdown_start_time || currentRace.updated_at);
+    const countdownAge = (now.getTime() - countdownStart.getTime()) / 1000;
+    const newTimer = Math.max(0, 5 - Math.floor(countdownAge));
+    
+    await supabase
+      .from('race_state')
+      .update({ 
+        countdown_timer: newTimer,
+        updated_at: now.toISOString()
+      })
+      .eq('id', currentRace.id);
+
+    if (countdownAge >= 5) {
+      console.log('🏁 Countdown complete, starting race...');
+      
+      // Reset horse positions
+      if (currentRace.horses) {
+        const resetHorses = currentRace.horses.map((horse: any) => ({
+          ...horse,
+          position: 0,
+          velocity: 0
+        }));
+        
+        await supabase
+          .from('race_state')
+          .update({
+            race_state: 'racing',
+            race_start_time: now.toISOString(),
+            race_timer: 0,
+            horses: resetHorses,
+            updated_at: now.toISOString()
+          })
+          .eq('id', currentRace.id);
+      }
+    }
+    return;
+  }
+
+  // Handle racing state
+  if (currentRace.race_state === 'racing') {
+    const raceStart = new Date(currentRace.race_start_time);
+    const raceDuration = (now.getTime() - raceStart.getTime()) / 1000;
+    
+    if (!currentRace.horses || currentRace.horses.length === 0) {
+      console.log('❌ No horses in race, ending race');
+      await endRace(supabase, currentRace.id);
+      return;
+    }
+
+    // Move horses
+    const updatedHorses = currentRace.horses.map((horse: any, index: number) => {
+      const baseSpeed = 20 + (Math.random() * 10); // 20-30 m/s
+      const currentPosition = horse.position || 0;
+      const newPosition = Math.min(1200, currentPosition + (baseSpeed * 0.1)); // 0.1s tick
+      
+      return {
+        ...horse,
+        position: newPosition,
+        velocity: baseSpeed
+      };
+    });
+
+    // Check if race is complete
+    const finishedHorses = updatedHorses.filter(h => h.position >= 1200);
+    const isRaceComplete = finishedHorses.length >= updatedHorses.length || raceDuration > 60;
+
+    if (isRaceComplete) {
+      console.log('🏆 Race complete!');
+      await supabase
+        .from('race_state')
+        .update({
+          race_state: 'finished',
+          horses: updatedHorses,
+          race_end_time: now.toISOString(),
+          show_results: true,
+          updated_at: now.toISOString()
+        })
+        .eq('id', currentRace.id);
+      
+      // Schedule new race in 5 seconds
+      setTimeout(async () => {
+        await createNewRace(supabase);
+      }, 5000);
+    } else {
+      // Update horse positions and race timer
+      await supabase
+        .from('race_state')
+        .update({
+          horses: updatedHorses,
+          race_timer: Math.floor(raceDuration),
+          updated_at: now.toISOString()
+        })
+        .eq('id', currentRace.id);
+    }
+    return;
+  }
+
+  // Handle finished state - create new race after 10 seconds
+  if (currentRace.race_state === 'finished') {
+    const finishAge = (now.getTime() - new Date(currentRace.race_end_time || currentRace.updated_at).getTime()) / 1000;
+    
+    if (finishAge >= 10) {
+      console.log('🆕 Creating new race after finish...');
+      await createNewRace(supabase);
+    }
+  }
+}
+
+async function createNewRace(supabase: any) {
+  try {
+    // Get random horses
+    const { data: horses, error: horsesError } = await supabase
+      .from('horses')
+      .select('*')
+      .limit(8);
+
+    if (horsesError || !horses || horses.length === 0) {
+      console.error('❌ Error fetching horses:', horsesError);
+      return;
+    }
+
+    // Shuffle and select 8 horses
+    const selectedHorses = horses
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 8)
+      .map((horse: any, index: number) => ({
+        id: horse.id,
+        name: horse.name,
+        position: 0,
+        lane: index + 1,
+        elo: horse.elo || 500,
+        odds: 2.0 + (Math.random() * 8.0),
+        velocity: 0
+      }));
+
+    const now = new Date();
+    
+    const { error: insertError } = await supabase
+      .from('race_state')
+      .insert({
+        race_state: 'pre-race',
+        horses: selectedHorses,
+        pre_race_timer: 10,
+        countdown_timer: 0,
+        race_timer: 0,
+        weather_conditions: {
+          condition: ['sunny', 'cloudy', 'rainy'][Math.floor(Math.random() * 3)],
+          temperature: 10 + Math.floor(Math.random() * 20),
+          humidity: 30 + Math.floor(Math.random() * 40),
+          windSpeed: Math.floor(Math.random() * 20)
+        },
+        created_at: now.toISOString(),
+        updated_at: now.toISOString()
+      });
+
+    if (insertError) {
+      console.error('❌ Error creating race:', insertError);
+    } else {
+      console.log('✅ New race created successfully');
+    }
+  } catch (error) {
+    console.error('❌ Error in createNewRace:', error);
+  }
+}
+
+async function endRace(supabase: any, raceId: string) {
+  const now = new Date();
+  await supabase
+    .from('race_state')
+    .update({
+      race_state: 'finished',
+      race_end_time: now.toISOString(),
+      show_results: true,
+      updated_at: now.toISOString()
+    })
+    .eq('id', raceId);
+}

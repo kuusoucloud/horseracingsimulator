@@ -132,6 +132,44 @@ export function useRaceSync() {
     initializeRaceSystem();
   }, []);
 
+  // RACE SERVER AUTOMATION - Start continuous server-side automation
+  useEffect(() => {
+    if (!supabase || !isConnected) return;
+
+    console.log('🤖 Starting race server automation...');
+    
+    const startRaceAutomation = async () => {
+      if (!supabase) return;
+      
+      try {
+        // Start continuous automation on the server
+        const { data, error } = await supabase.functions.invoke('supabase-functions-race-server', {
+          body: { action: 'start_automation' }
+        });
+        
+        if (error) {
+          console.error('❌ Race server error:', error);
+        } else {
+          console.log('✅ Race server automation started:', data);
+        }
+      } catch (error) {
+        console.error('❌ Race server start error:', error);
+      }
+    };
+
+    // Start automation immediately
+    startRaceAutomation();
+
+    // Cleanup function to stop automation when component unmounts
+    return () => {
+      if (supabase) {
+        supabase.functions.invoke('supabase-functions-race-server', {
+          body: { action: 'stop_automation' }
+        }).catch(console.error);
+      }
+    };
+  }, [isConnected]);
+
   // SIMPLE SERVER AUTOMATION TRIGGER - Call race automation edge function
   useEffect(() => {
     if (!supabase || !isConnected) return;
