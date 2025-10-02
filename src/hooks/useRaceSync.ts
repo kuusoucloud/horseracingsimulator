@@ -157,98 +157,155 @@ export function useRaceSync() {
     };
   }, [isConnected]);
 
-  // Multiplayer-style client prediction system
+  // Ultra-high-frequency client updates (120fps for maximum smoothness)
   useEffect(() => {
-    if (!raceData) return;
+    if (!isRacing) return;
 
-    const updateClientPrediction = () => {
-      const now = Date.now();
-      const timeSinceLastUpdate = now - lastServerUpdate.current;
-      
-      if (raceData.race_state === 'racing' && raceData.horses) {
-        const predictedHorses = raceData.horses.map((horse: any, index: number) => {
-          if (!horse || typeof horse.position !== 'number') {
+    const clientUpdateInterval = setInterval(() => {
+      setHorseProgress(prev => 
+        prev.map(horse => {
+          if (!horse.lastUpdateTime) return horse;
+          
+          const now = Date.now();
+          const timeSinceUpdate = now - horse.lastUpdateTime;
+          
+          // Ultra-smooth client prediction (max 200ms)
+          if (timeSinceUpdate < 200 && horse.velocity > 0) {
+            const deltaSeconds = timeSinceUpdate / 1000;
+            const predictedPosition = Math.min(1200, horse.clientPosition + (horse.velocity * deltaSeconds));
+            
             return {
               ...horse,
-              serverPosition: 0,
-              clientPosition: 0,
-              velocity: 0,
-              lastServerUpdate: now,
-              predictedPosition: 0
+              clientPosition: predictedPosition
             };
           }
+          
+          return horse;
+        })
+      );
+    }, 8); // 8ms = 120fps client updates for buttery-smooth movement
 
-          // Find existing smooth horse or create new one
-          const existingHorse = smoothHorses.find(h => h.id === horse.id);
+    return () => clearInterval(clientUpdateInterval);
+  }, [isRacing]);
+
+  // REAL-TIME VISUAL UPDATE LOOP - Independent of database subscription
+  useEffect(() => {
+    if (!raceData || raceData.race_state !== 'racing') return;
+
+    const visualUpdateLoop = () => {
+      const now = Date.now();
+      const timeSinceServerUpdate = now - lastServerUpdate.current;
+      
+      // Update smooth horses with ultra-high frequency prediction
+      setSmoothHorses(prevHorses => 
+        prevHorses.map(horse => {
+          if (!horse.velocity || horse.velocity <= 0) return horse;
           
-          // Get server velocity if available, otherwise calculate realistic velocity
-          let velocity = horse.velocity;
-          if (!velocity) {
-            // Calculate realistic velocity matching server logic (18-23 m/s range)
-            const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
-            const realisticSpeed = 18.0 + (baseSpeed * 5.0); // Range: 18-23 m/s
-            const speedVariation = 0.85 + (Math.sin(now * 0.0003 + index) * 0.15);
-            velocity = realisticSpeed * speedVariation;
-          }
-          
-          let clientPosition;
-          let predictedPosition;
-          
-          if (existingHorse && timeSinceLastUpdate < 300) { // 300ms max prediction for ultra-fast updates
-            // Ultra-aggressive client-side prediction for buttery-smooth racing
-            const deltaTime = timeSinceLastUpdate / 1000; // Convert to seconds
-            predictedPosition = existingHorse.clientPosition + (velocity * deltaTime);
-            
-            // Ultra-fast correction towards server position (maximum responsiveness)
-            const correctionStrength = Math.min(timeSinceLastUpdate / 50, 0.9); // Max 90% correction, ultra-fast blending
-            clientPosition = predictedPosition * (1 - correctionStrength) + horse.position * correctionStrength;
-          } else {
-            // First update or too much lag - snap to server position
-            clientPosition = horse.position;
-            predictedPosition = horse.position;
-          }
-          
-          // Ensure position doesn't exceed race distance
-          clientPosition = Math.min(clientPosition, 1200);
-          predictedPosition = Math.min(predictedPosition, 1200);
+          // Ultra-smooth client prediction (16ms updates = 60fps visual)
+          const deltaTime = 16 / 1000; // 16ms in seconds
+          const predictedPosition = Math.min(1200, horse.clientPosition + (horse.velocity * deltaTime));
           
           return {
             ...horse,
-            serverPosition: horse.position,
-            clientPosition: clientPosition,
-            velocity: velocity,
-            lastServerUpdate: now,
-            predictedPosition: predictedPosition,
-            position: clientPosition // Override for components
+            clientPosition: predictedPosition,
+            position: predictedPosition // Override for components
           };
-        });
-        
-        setSmoothHorses(predictedHorses);
-      } else {
-        // Not racing - use server positions directly
-        const staticHorses = (raceData.horses || []).map((horse: any) => ({
-          ...horse,
-          serverPosition: horse.position || 0,
-          clientPosition: horse.position || 0,
-          velocity: 0,
-          lastServerUpdate: now,
-          predictedPosition: horse.position || 0
-        }));
-        setSmoothHorses(staticHorses);
-      }
+        })
+      );
       
-      // Continue prediction loop at 60fps
-      animationFrameRef.current = requestAnimationFrame(updateClientPrediction);
+      // Continue the loop at 60fps
+      animationFrameRef.current = requestAnimationFrame(visualUpdateLoop);
     };
 
-    // Start client prediction loop
-    updateClientPrediction();
+    // Start the visual update loop
+    visualUpdateLoop();
 
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
+  }, [raceData?.race_state]);
+
+  // Multiplayer-style client prediction system - ONLY for server sync
+  useEffect(() => {
+    if (!raceData) return;
+
+    // This now only handles server updates, not visual updates
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastServerUpdate.current;
+    
+    if (raceData.race_state === 'racing' && raceData.horses) {
+      const syncedHorses = raceData.horses.map((horse: any, index: number) => {
+        if (!horse || typeof horse.position !== 'number') {
+          return {
+            ...horse,
+            serverPosition: 0,
+            clientPosition: 0,
+            velocity: 0,
+            lastServerUpdate: now,
+            predictedPosition: 0
+          };
+        }
+
+        // Find existing smooth horse or create new one
+        const existingHorse = smoothHorses.find(h => h.id === horse.id);
+        
+        // Get server velocity if available, otherwise calculate realistic velocity
+        let velocity = horse.velocity;
+        if (!velocity) {
+          // Calculate realistic velocity matching server logic (18-23 m/s range)
+          const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
+          const realisticSpeed = 18.0 + (baseSpeed * 5.0); // Range: 18-23 m/s
+          const speedVariation = 0.85 + (Math.sin(now * 0.0003 + index) * 0.15);
+          velocity = realisticSpeed * speedVariation;
+        }
+        
+        let clientPosition;
+        let predictedPosition;
+        
+        if (existingHorse && timeSinceLastUpdate < 300) { // 300ms max prediction for ultra-fast updates
+          // Ultra-aggressive client-side prediction for buttery-smooth racing
+          const deltaTime = timeSinceLastUpdate / 1000; // Convert to seconds
+          predictedPosition = existingHorse.clientPosition + (velocity * deltaTime);
+          
+          // Ultra-fast correction towards server position (maximum responsiveness)
+          const correctionStrength = Math.min(timeSinceLastUpdate / 50, 0.9); // Max 90% correction, ultra-fast blending
+          clientPosition = predictedPosition * (1 - correctionStrength) + horse.position * correctionStrength;
+        } else {
+          // First update or too much lag - snap to server position
+          clientPosition = horse.position;
+          predictedPosition = horse.position;
+        }
+        
+        // Ensure position doesn't exceed race distance
+        clientPosition = Math.min(clientPosition, 1200);
+        predictedPosition = Math.min(predictedPosition, 1200);
+        
+        return {
+          ...horse,
+          serverPosition: horse.position,
+          clientPosition: clientPosition,
+          velocity: velocity,
+          lastServerUpdate: now,
+          predictedPosition: predictedPosition,
+          position: clientPosition // Override for components
+        };
+      });
+      
+      setSmoothHorses(syncedHorses);
+    } else {
+      // Not racing - use server positions directly
+      const staticHorses = (raceData.horses || []).map((horse: any) => ({
+        ...horse,
+        serverPosition: horse.position || 0,
+        clientPosition: horse.position || 0,
+        velocity: 0,
+        lastServerUpdate: now,
+        predictedPosition: horse.position || 0
+      }));
+      setSmoothHorses(staticHorses);
+    }
   }, [raceData, lastServerUpdate.current]);
 
   // Ultra-high-frequency server timer (60fps = 16ms for buttery-smooth racing)
