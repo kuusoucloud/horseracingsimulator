@@ -315,7 +315,7 @@ function FollowCamera({
     const cappedDelta = Math.min(delta, maxDelta);
     
     // Much gentler interpolation speeds for realistic movement
-    const interpolationSpeed = isRacing ? 12.0 : 6.0; // Faster camera tracking
+    const interpolationSpeed = isRacing ? 20.0 : 10.0; // Ultra-fast camera tracking
     const lerpFactor = Math.min(cappedDelta * interpolationSpeed, 1.0);
     
     // Calculate ultra-smooth camera position
@@ -460,10 +460,10 @@ function SmoothHorse({
     setElapsedTime(raceElapsedTime);
 
     // Smooth interpolation optimized for realistic horse speeds
-    const interpolationSpeed = isRacing ? 15.0 : 8.0; // Much faster interpolation
-    const maxDelta = 0.033; // Cap delta to prevent jumps (30fps)
+    const interpolationSpeed = isRacing ? 25.0 : 12.0; // Ultra-fast interpolation
+    const maxDelta = 0.016; // Cap delta to prevent jumps (60fps)
 
-    // Calculate desired position with fast, responsive interpolation
+    // Calculate desired position with ultra-fast, buttery-smooth interpolation
     const cappedDelta = Math.min(delta, maxDelta);
     const lerpFactor = Math.min(cappedDelta * interpolationSpeed, 1.0);
     

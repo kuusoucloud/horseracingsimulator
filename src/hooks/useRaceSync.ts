@@ -194,13 +194,13 @@ export function useRaceSync() {
           let clientPosition;
           let predictedPosition;
           
-          if (existingHorse && timeSinceLastUpdate < 500) { // 500ms max prediction for faster updates
-            // Aggressive client-side prediction for fast racing
+          if (existingHorse && timeSinceLastUpdate < 300) { // 300ms max prediction for ultra-fast updates
+            // Ultra-aggressive client-side prediction for buttery-smooth racing
             const deltaTime = timeSinceLastUpdate / 1000; // Convert to seconds
             predictedPosition = existingHorse.clientPosition + (velocity * deltaTime);
             
-            // Faster correction towards server position (more responsive)
-            const correctionStrength = Math.min(timeSinceLastUpdate / 100, 0.8); // Max 80% correction, faster blending
+            // Ultra-fast correction towards server position (maximum responsiveness)
+            const correctionStrength = Math.min(timeSinceLastUpdate / 50, 0.9); // Max 90% correction, ultra-fast blending
             clientPosition = predictedPosition * (1 - correctionStrength) + horse.position * correctionStrength;
           } else {
             // First update or too much lag - snap to server position
@@ -251,11 +251,11 @@ export function useRaceSync() {
     };
   }, [raceData, lastServerUpdate.current]);
 
-  // High-frequency server timer (30fps = 33ms for ultra-smooth racing)
+  // Ultra-high-frequency server timer (60fps = 16ms for buttery-smooth racing)
   useEffect(() => {
     if (!supabase || !isConnected) return;
 
-    console.log('⚡ Starting ultra-high-frequency race timer (30fps)...');
+    console.log('⚡ Starting ultra-high-frequency race timer (60fps)...');
     
     timerInterval.current = setInterval(async () => {
       try {
@@ -270,7 +270,7 @@ export function useRaceSync() {
       } catch (error) {
         console.error('❌ Timer error:', error);
       }
-    }, 33); // 33ms = 30fps server updates (ultra-smooth racing)
+    }, 16); // 16ms = 60fps server updates (buttery-smooth racing)
 
     return () => {
       if (timerInterval.current) {
