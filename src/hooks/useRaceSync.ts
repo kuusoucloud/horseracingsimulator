@@ -411,19 +411,41 @@ export function useRaceSync() {
     return raceData?.race_results || [];
   }, [raceData?.race_results]);
 
-  // OPTIMIZED weather conditions - cached result
+  // STABLE weather conditions - prevent flickering with ref caching
+  const weatherConditionsRef = useRef<any>(null);
   const getWeatherConditions = useCallback(() => {
     const serverWeather = raceData?.weather_conditions;
     
+    // If no server weather data, return cached or default
+    if (!serverWeather) {
+      if (weatherConditionsRef.current) {
+        return weatherConditionsRef.current;
+      }
+      
+      const defaultWeather = {
+        timeOfDay: "day" as const,
+        weather: "clear" as const,
+        skyColor: "#87ceeb",
+        ambientIntensity: 0.4,
+        directionalIntensity: 1.0,
+        trackColor: "#8B4513",
+        grassColor: "#32cd32"
+      };
+      weatherConditionsRef.current = defaultWeather;
+      return defaultWeather;
+    }
+    
     // Handle different weather formats from server
-    if (serverWeather && typeof serverWeather === 'object') {
+    if (typeof serverWeather === 'object') {
+      let processedWeather;
+      
       // Check if it's the new server format
       if ('condition' in serverWeather && 'humidity' in serverWeather) {
         const condition = serverWeather.condition as string;
         const isRainy = condition === 'rainy' || condition === 'rain';
         const isTwilight = condition === 'twilight' || condition === 'night';
         
-        return {
+        processedWeather = {
           timeOfDay: isTwilight ? "night" as const : "day" as const,
           weather: isRainy ? "rain" as const : "clear" as const,
           skyColor: isTwilight 
@@ -435,15 +457,22 @@ export function useRaceSync() {
           grassColor: isRainy ? "#2d5a2d" : (isTwilight ? "#228b22" : "#32cd32"),
         };
       }
-      
       // Check if it's already in the correct client format
-      if ('timeOfDay' in serverWeather && 'weather' in serverWeather) {
-        return serverWeather as any;
+      else if ('timeOfDay' in serverWeather && 'weather' in serverWeather) {
+        processedWeather = serverWeather as any;
       }
+      
+      // Only update cache if weather actually changed
+      if (processedWeather && JSON.stringify(processedWeather) !== JSON.stringify(weatherConditionsRef.current)) {
+        console.log('🌤️ Weather conditions updated:', processedWeather);
+        weatherConditionsRef.current = processedWeather;
+      }
+      
+      return weatherConditionsRef.current || processedWeather;
     }
     
-    // Fallback to default conditions
-    return {
+    // Return cached weather if available
+    return weatherConditionsRef.current || {
       timeOfDay: "day" as const,
       weather: "clear" as const,
       skyColor: "#87ceeb",
