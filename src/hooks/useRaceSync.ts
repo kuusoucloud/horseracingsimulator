@@ -159,15 +159,15 @@ export function useRaceSync() {
 
   // Ultra-high-frequency client updates (120fps for maximum smoothness)
   useEffect(() => {
-    if (!isRacing) return;
+    if (!raceData || raceData.race_state !== 'racing') return;
 
     const clientUpdateInterval = setInterval(() => {
-      setHorseProgress(prev => 
+      setSmoothHorses(prev => 
         prev.map(horse => {
-          if (!horse.lastUpdateTime) return horse;
+          if (!horse.lastServerUpdate) return horse;
           
           const now = Date.now();
-          const timeSinceUpdate = now - horse.lastUpdateTime;
+          const timeSinceUpdate = now - horse.lastServerUpdate;
           
           // Ultra-smooth client prediction (max 200ms)
           if (timeSinceUpdate < 200 && horse.velocity > 0) {
@@ -186,7 +186,7 @@ export function useRaceSync() {
     }, 8); // 8ms = 120fps client updates for buttery-smooth movement
 
     return () => clearInterval(clientUpdateInterval);
-  }, [isRacing]);
+  }, [raceData?.race_state]);
 
   // REAL-TIME VISUAL UPDATE LOOP - Independent of database subscription
   useEffect(() => {
