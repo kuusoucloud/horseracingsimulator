@@ -89,13 +89,13 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
   useEffect(() => {
     refreshLeaderboard();
     
-    // Refresh every 15 seconds instead of 10 to reduce server load
-    const interval = setInterval(() => refreshLeaderboard(true), 15000);
+    // Reduce refresh frequency to 30 seconds to prevent constant updates
+    const interval = setInterval(() => refreshLeaderboard(true), 30000);
     
     return () => clearInterval(interval);
   }, []);
 
-  // Set up real-time subscription for horse updates
+  // Set up real-time subscription for horse updates (but debounce the updates)
   useEffect(() => {
     if (!supabase) {
       console.warn('Supabase not available - cannot set up real-time subscription');
@@ -103,6 +103,8 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
     }
 
     console.log('🔄 Setting up real-time subscription for horses table...');
+    
+    let debounceTimer: NodeJS.Timeout;
     
     const subscription = supabase
       .channel('horses-changes')
@@ -113,14 +115,20 @@ export default function EloLeaderboard({ refreshTrigger = 0 }: EloLeaderboardPro
           table: 'horses' 
         }, 
         (payload) => {
-          console.log('🔄 Horse data changed, refreshing leaderboard...', payload);
-          refreshLeaderboard(true);
+          console.log('🔄 Horse data changed, debouncing refresh...', payload);
+          
+          // Debounce updates to prevent constant refreshing
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            refreshLeaderboard(true);
+          }, 2000); // Wait 2 seconds before refreshing
         }
       )
       .subscribe();
 
     return () => {
       console.log('🔄 Cleaning up real-time subscription...');
+      clearTimeout(debounceTimer);
       subscription.unsubscribe();
     };
   }, []);

@@ -25,10 +25,19 @@ export default function LiveRankings({
     return null;
   }
 
-  // Sort horses by position (furthest distance first)
+  // Sort horses by position (furthest distance first) and ensure unique horses
   const sortedHorses = [...progress]
-    .filter((horse) => horse.horse?.name) // Only show horses with valid data
-    .sort((a, b) => b.position - a.position);
+    .filter((horse) => horse.horse?.name && horse.horse?.id) // Only show horses with valid data
+    .reduce((unique, horse) => {
+      // Remove duplicates by horse ID
+      const exists = unique.find(h => h.horse?.id === horse.horse?.id);
+      if (!exists) {
+        unique.push(horse);
+      }
+      return unique;
+    }, [] as typeof progress)
+    .sort((a, b) => b.position - a.position)
+    .slice(0, 8); // Ensure max 8 horses
 
   return (
     <div className="absolute top-8 left-4 right-40 z-10 bg-black/60 backdrop-blur-sm border border-white/20 rounded-lg">
@@ -42,7 +51,7 @@ export default function LiveRankings({
 
               return (
                 <motion.div
-                  key={horse?.id || index}
+                  key={`${horse?.id}-${horse?.name}`} // More unique key
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
