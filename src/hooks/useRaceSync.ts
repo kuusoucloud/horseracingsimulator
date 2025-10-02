@@ -186,22 +186,13 @@ export function useRaceSync() {
         const updatedHorses = prevHorses.map((horse, index) => {
           // Calculate realistic horse speed if not set - ENSURE ALL HORSES GET VELOCITY
           let velocity = horse.velocity;
-          if (!velocity || velocity <= 0) {
+          if (!velocity || velocity <= 0 || isNaN(velocity)) {
             const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
             const realisticSpeed = 18.0 + (baseSpeed * 7.0);
-            // Use horse ID for consistent speed variation - FALLBACK to index if no ID
-            let seedValue;
-            if (horse.id) {
-              try {
-                seedValue = parseInt(horse.id.slice(-4), 16) / 65536;
-              } catch {
-                seedValue = (index + 1) * 0.1; // Fallback if ID parsing fails
-              }
-            } else {
-              // Fallback: use array index for consistent speed
-              seedValue = (index + 1) * 0.1; // 0.1, 0.2, 0.3, etc.
-            }
-            const speedVariation = 0.85 + (seedValue * 0.3);
+            
+            // FIXED: Use simple index-based seed to avoid NaN issues
+            const seedValue = (index + 1) * 0.123; // Simple deterministic seed
+            const speedVariation = 0.85 + (seedValue % 1) * 0.3; // Ensure 0-1 range
             velocity = realisticSpeed * speedVariation;
             
             console.log(`🏇 Horse ${horse.name || horse.id || `Horse ${index + 1}`} velocity: ${velocity.toFixed(2)} m/s (index: ${index}, baseSpeed: ${baseSpeed.toFixed(2)}, seedValue: ${seedValue.toFixed(3)})`);
@@ -272,19 +263,10 @@ export function useRaceSync() {
       const initialHorses = raceData.horses.map((horse: any, index: number) => {
         const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
         const realisticSpeed = 18.0 + (baseSpeed * 7.0);
-        // Use horse ID for consistent speed variation - FALLBACK to index
-        let seedValue;
-        if (horse.id) {
-          try {
-            seedValue = parseInt(horse.id.slice(-4), 16) / 65536;
-          } catch {
-            seedValue = (index + 1) * 0.1; // Fallback if ID parsing fails
-          }
-        } else {
-          // Fallback: use array index for consistent speed
-          seedValue = (index + 1) * 0.1; // 0.1, 0.2, 0.3, etc.
-        }
-        const speedVariation = 0.85 + (seedValue * 0.3);
+        
+        // FIXED: Use simple index-based seed to avoid NaN issues
+        const seedValue = (index + 1) * 0.123; // Simple deterministic seed
+        const speedVariation = 0.85 + (seedValue % 1) * 0.3; // Ensure 0-1 range
         const velocity = realisticSpeed * speedVariation;
         
         console.log(`🏇 Initializing horse ${horse.name || horse.id || `Horse ${index + 1}`} with velocity: ${velocity.toFixed(2)} m/s (index: ${index})`);
