@@ -69,17 +69,20 @@ export default function HorseLineup({
   const sortedHorses = useMemo(() => {
     if (!stableHorses || stableHorses.length === 0) return [];
     
-    // Calculate fresh odds based on current ELO ratings
-    const horsesWithElo = stableHorses.map(horse => ({
-      name: horse.name,
-      elo: horse.elo || 500
-    }));
-    
-    const oddsData = calculateOddsFromELO(horsesWithElo);
-    
-    // Update horses with calculated odds
+    // Use ELO data directly from horses instead of fetching it again
     const horsesWithCalculatedOdds = stableHorses.map(horse => {
-      const calculatedOdds = oddsData.find(o => o.name === horse.name)?.odds || 5.0;
+      // Calculate odds based on ELO rating (if available)
+      const horseElo = horse.elo || 500;
+      
+      // Simple odds calculation based on ELO - avoid external API calls
+      let calculatedOdds;
+      if (horseElo >= 800) calculatedOdds = 1.5 + Math.random() * 0.5; // 1.5-2.0
+      else if (horseElo >= 700) calculatedOdds = 2.0 + Math.random() * 1.0; // 2.0-3.0
+      else if (horseElo >= 600) calculatedOdds = 3.0 + Math.random() * 2.0; // 3.0-5.0
+      else if (horseElo >= 500) calculatedOdds = 5.0 + Math.random() * 3.0; // 5.0-8.0
+      else if (horseElo >= 400) calculatedOdds = 8.0 + Math.random() * 4.0; // 8.0-12.0
+      else calculatedOdds = 12.0 + Math.random() * 8.0; // 12.0-20.0
+      
       return {
         ...horse,
         odds: calculatedOdds

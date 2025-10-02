@@ -58,15 +58,26 @@ export default function Home() {
   const showResultsFromServer = shouldShowResults();
   const photoFinishResultsFromServer = getPhotoFinishResults();
 
-  // Fetch horse ELO data from database and merge with race data
+  // Fetch horse ELO data from database and merge with race data - WITH CACHING
   const [horseEloData, setHorseEloData] = useState<Record<string, any>>({});
+  const [lastFetchedHorses, setLastFetchedHorses] = useState<string>('');
   
   useEffect(() => {
     const fetchHorseEloData = async () => {
       if (!supabase || horses.length === 0) return;
       
+      // Create a stable hash of horse names to prevent unnecessary refetches
+      const horseNamesHash = horses.map(h => h.name).sort().join('|');
+      
+      // Only fetch if horses actually changed
+      if (horseNamesHash === lastFetchedHorses) {
+        return; // Skip fetch - same horses as before
+      }
+      
       try {
         const horseNames = horses.map(h => h.name);
+        console.log('🏇 Fetching ELO data for horses:', horseNames);
+        
         const { data: dbHorses, error } = await supabase
           .from('horses')
           .select('name, elo, total_races, wins, recent_form')
@@ -83,14 +94,18 @@ export default function Home() {
         });
         
         setHorseEloData(eloMap);
-        console.log('🏇 Fetched horse ELO data:', eloMap);
+        setLastFetchedHorses(horseNamesHash);
+        console.log('🏇 Successfully fetched horse ELO data:', eloMap);
       } catch (error) {
         console.error('Error fetching horse ELO data:', error);
+        // Don't update lastFetchedHorses on error so we can retry
       }
     };
     
-    fetchHorseEloData();
-  }, [horses, supabase]);
+    // Debounce the fetch to prevent rapid-fire requests
+    const timeoutId = setTimeout(fetchHorseEloData, 500);
+    return () => clearTimeout(timeoutId);
+  }, [horses, supabase, lastFetchedHorses]);
 
   // Merge database ELO data with race horses
   const horsesWithElo = horses.map(horse => ({
