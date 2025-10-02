@@ -157,40 +157,7 @@ export function useRaceSync() {
     };
   }, [isConnected]);
 
-  // HIGH-FREQUENCY SERVER TICK SYSTEM - calls server every 100ms during racing
-  useEffect(() => {
-    if (!raceData || raceData.race_state !== 'racing') {
-      return;
-    }
-
-    console.log('🏇 Starting high-frequency server tick system...');
-    
-    const tickInterval = setInterval(async () => {
-      try {
-        // Call the race-tick function (the working one)
-        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/supabase-functions-race-tick`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        if (!response.ok) {
-          console.error('High-frequency tick failed:', response.status);
-        }
-      } catch (error) {
-        console.error('High-frequency tick error:', error);
-      }
-    }, 100); // 100ms = 10 FPS
-
-    return () => {
-      clearInterval(tickInterval);
-      console.log('🏇 Stopped high-frequency server tick system');
-    };
-  }, [raceData?.race_state]);
-
-  // OPTIMIZED VISUAL UPDATE SYSTEM - Much more efficient
+  // INDEPENDENT CLIENT-SIDE SMOOTH MOVEMENT - No server interference during racing
   useEffect(() => {
     if (!raceData || raceData.race_state !== 'racing') {
       // Cancel any running animation
@@ -200,19 +167,14 @@ export function useRaceSync() {
       return;
     }
 
-    console.log('🏇 Starting optimized visual updates...');
+    console.log('🏇 Starting independent smooth movement system...');
     let lastUpdateTime = Date.now();
 
-    const optimizedVisualUpdate = () => {
+    const smoothMovementUpdate = () => {
       const now = Date.now();
       const deltaTime = (now - lastUpdateTime) / 1000; // Convert to seconds
       
-      // Only update if enough time has passed (30fps instead of 60fps)
-      if (deltaTime < 0.033) {
-        animationFrameRef.current = requestAnimationFrame(optimizedVisualUpdate);
-        return;
-      }
-      
+      // Update at 60fps for ultra-smooth movement
       lastUpdateTime = now;
 
       setSmoothHorses(prevHorses => {
@@ -220,27 +182,30 @@ export function useRaceSync() {
         
         let hasChanges = false;
         const updatedHorses = prevHorses.map(horse => {
-          if (!horse.velocity || horse.velocity <= 0) return horse;
+          // Calculate realistic horse speed if not set
+          let velocity = horse.velocity;
+          if (!velocity || velocity <= 0) {
+            const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
+            const realisticSpeed = 18.0 + (baseSpeed * 7.0);
+            // Use horse ID for consistent speed variation
+            const seedValue = horse.id ? parseInt(horse.id.slice(-4), 16) / 65536 : Math.random();
+            const speedVariation = 0.85 + (seedValue * 0.3);
+            velocity = realisticSpeed * speedVariation;
+          }
           
-          // Calculate time since server update
-          const timeSinceUpdate = now - horse.lastServerUpdate;
-          const predictionTime = Math.min(timeSinceUpdate, 200) / 1000; // Max 200ms prediction
-          
-          // Predict where horse should be based on server position + velocity
-          const predictedPosition = Math.min(1200, horse.serverPosition + (horse.velocity * predictionTime));
           const currentPosition = horse.position || 0;
           
-          // Smooth interpolation towards predicted position
-          const lerpFactor = Math.min(deltaTime * 12, 1); // Faster interpolation for responsiveness
-          const newPosition = currentPosition + (predictedPosition - currentPosition) * lerpFactor;
+          // Calculate new position based on velocity and time
+          const newPosition = Math.min(1200, currentPosition + (velocity * deltaTime));
           
-          // Only update if position changed significantly (reduces unnecessary renders)
-          if (Math.abs(newPosition - currentPosition) > 0.1) {
+          // Only update if position changed significantly
+          if (Math.abs(newPosition - currentPosition) > 0.01) {
             hasChanges = true;
             return {
               ...horse,
+              position: newPosition,
               clientPosition: newPosition,
-              position: newPosition
+              velocity: velocity
             };
           }
           
@@ -252,11 +217,11 @@ export function useRaceSync() {
       });
       
       // Continue the update loop
-      animationFrameRef.current = requestAnimationFrame(optimizedVisualUpdate);
+      animationFrameRef.current = requestAnimationFrame(smoothMovementUpdate);
     };
 
-    // Start the visual update loop
-    optimizedVisualUpdate();
+    // Start the smooth movement loop
+    smoothMovementUpdate();
 
     return () => {
       if (animationFrameRef.current) {
@@ -265,104 +230,17 @@ export function useRaceSync() {
     };
   }, [raceData?.race_state]);
 
-  // OPTIMIZED server sync - handles position updates from database
+  // SIMPLIFIED server sync - only sync when race state changes, not during racing
   useEffect(() => {
     if (!raceData) return;
 
     const now = Date.now();
     
-    if (raceData.race_state === 'racing' && raceData.horses) {
-      console.log('🏇 Syncing server positions for', raceData.horses.length, 'horses');
+    // Only sync server data when NOT racing (to avoid interfering with smooth movement)
+    if (raceData.race_state !== 'racing' && raceData.horses) {
+      console.log('🏇 Syncing server positions (non-racing state)');
       
-      setSmoothHorses(prevHorses => {
-        // If we don't have smooth horses yet, initialize them
-        if (prevHorses.length === 0) {
-          return raceData.horses.map((horse: any, index: number) => {
-            if (!horse || typeof horse.position !== 'number') {
-              return {
-                ...horse,
-                serverPosition: 0,
-                clientPosition: 0,
-                velocity: 0,
-                lastServerUpdate: now,
-                position: 0,
-                predictedPosition: 0
-              };
-            }
-
-            // Calculate consistent velocity for each horse
-            const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
-            const realisticSpeed = 18.0 + (baseSpeed * 5.0);
-            // Use horse ID for consistent random seed
-            const seedValue = horse.id ? parseInt(horse.id.slice(-4), 16) / 65536 : Math.random();
-            const speedVariation = 0.85 + (seedValue * 0.3); // More consistent speed variation
-            const velocity = realisticSpeed * speedVariation;
-            
-            return {
-              ...horse,
-              serverPosition: horse.position,
-              clientPosition: horse.position,
-              velocity: velocity,
-              lastServerUpdate: now,
-              position: horse.position,
-              predictedPosition: horse.position
-            };
-          });
-        }
-        
-        // Update existing smooth horses with new server data - GENTLE SYNC
-        return prevHorses.map((smoothHorse, index) => {
-          const serverHorse = raceData.horses[index];
-          if (!serverHorse) return smoothHorse;
-          
-          // Check if server position has significantly changed (new server update)
-          const serverPositionChanged = Math.abs((serverHorse.position || 0) - smoothHorse.serverPosition) > 1;
-          
-          if (serverPositionChanged) {
-            // Server position updated - gently sync without jarring jumps
-            const timeSinceLastUpdate = now - smoothHorse.lastServerUpdate;
-            const currentClientPosition = smoothHorse.position || smoothHorse.clientPosition || 0;
-            
-            // If client is way ahead of server, gradually pull back
-            const serverPos = serverHorse.position || 0;
-            const positionDiff = currentClientPosition - serverPos;
-            
-            let newClientPosition = currentClientPosition;
-            if (positionDiff > 50) {
-              // Client is too far ahead, gradually sync back
-              newClientPosition = serverPos + (positionDiff * 0.7);
-            } else if (positionDiff < -20) {
-              // Client is behind, catch up faster
-              newClientPosition = serverPos;
-            }
-            
-            return {
-              ...smoothHorse,
-              ...serverHorse, // Update horse data (name, stats, etc.)
-              serverPosition: serverPos,
-              velocity: (serverHorse as any).velocity || smoothHorse.velocity,
-              lastServerUpdate: now,
-              position: newClientPosition,
-              clientPosition: newClientPosition,
-              predictedPosition: newClientPosition
-            };
-          } else {
-            // No server position change - just update metadata
-            return {
-              ...smoothHorse,
-              ...serverHorse, // Update horse data but keep positions
-              serverPosition: smoothHorse.serverPosition,
-              velocity: (serverHorse as any).velocity || smoothHorse.velocity,
-              position: smoothHorse.position,
-              clientPosition: smoothHorse.clientPosition,
-              predictedPosition: smoothHorse.predictedPosition
-            };
-          }
-        });
-      });
-    } else {
-      // Not racing - use server positions directly (no extra processing)
-      const staticHorses = (raceData.horses || []).map((horse: any) => ({
+      const staticHorses = raceData.horses.map((horse: any) => ({
         ...horse,
         serverPosition: horse.position || 0,
         clientPosition: horse.position || 0,
@@ -372,8 +250,30 @@ export function useRaceSync() {
         predictedPosition: horse.position || 0
       }));
       setSmoothHorses(staticHorses);
+    } else if (raceData.race_state === 'racing' && smoothHorses.length === 0) {
+      // Initialize smooth horses only once when race starts
+      console.log('🏇 Initializing smooth horses for racing');
+      
+      const initialHorses = raceData.horses.map((horse: any) => {
+        const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
+        const realisticSpeed = 18.0 + (baseSpeed * 7.0);
+        const seedValue = horse.id ? parseInt(horse.id.slice(-4), 16) / 65536 : Math.random();
+        const speedVariation = 0.85 + (seedValue * 0.3);
+        const velocity = realisticSpeed * speedVariation;
+        
+        return {
+          ...horse,
+          serverPosition: horse.position || 0,
+          clientPosition: horse.position || 0,
+          velocity: velocity,
+          lastServerUpdate: now,
+          position: horse.position || 0,
+          predictedPosition: horse.position || 0
+        };
+      });
+      setSmoothHorses(initialHorses);
     }
-  }, [raceData]);
+  }, [raceData?.race_state, raceData?.horses, smoothHorses.length]);
 
   // OPTIMIZED server timer - Reduced frequency for better performance
   useEffect(() => {
