@@ -167,8 +167,8 @@ export function useRaceSync() {
     
     const tickInterval = setInterval(async () => {
       try {
-        // Call the high-frequency tick function
-        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/supabase-functions-high-frequency-tick`, {
+        // Call the race-tick function (the working one)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/supabase-functions-race-tick`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
