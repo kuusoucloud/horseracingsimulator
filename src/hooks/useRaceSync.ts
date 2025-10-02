@@ -35,6 +35,9 @@ export function useRaceSync() {
   const [isLoading, setIsLoading] = useState(true);
   const [isWaitingForNewRace, setIsWaitingForNewRace] = useState(false);
   
+  // Use ref to track waiting state for subscription callback
+  const isWaitingRef = useRef(false);
+  
   // Multiplayer-style smooth horses with client prediction
   const [smoothHorses, setSmoothHorses] = useState<SmoothHorse[]>([]);
   const lastServerUpdate = useRef<number>(0);
@@ -42,6 +45,11 @@ export function useRaceSync() {
   
   const timerInterval = useRef<NodeJS.Timeout | null>(null);
   const subscription = useRef<any>(null);
+
+  // Sync waiting state with ref
+  useEffect(() => {
+    isWaitingRef.current = isWaitingForNewRace;
+  }, [isWaitingForNewRace]);
 
   // Initialize and load current race state
   useEffect(() => {
@@ -74,6 +82,7 @@ export function useRaceSync() {
             if (currentRace.race_state === 'racing' || currentRace.race_state === 'countdown') {
               console.log('🚫 Client connected mid-race - waiting for next race to start');
               setIsWaitingForNewRace(true);
+              isWaitingRef.current = true;
               setRaceData(null); // Don't show the current race
             } else {
               // Type-safe conversion from database row to RaceData
@@ -95,6 +104,7 @@ export function useRaceSync() {
               };
               setRaceData(raceDataFromDB);
               setIsWaitingForNewRace(false);
+              isWaitingRef.current = false;
             }
             lastServerUpdate.current = Date.now();
           } else {
@@ -153,11 +163,12 @@ export function useRaceSync() {
               timer_owner: dbRow.timer_owner || undefined,
             };
             
-            // HANDLE MID-RACE CONNECTION: Only allow updates if not waiting or if race is starting fresh
-            if (isWaitingForNewRace) {
+            // HANDLE MID-RACE CONNECTION: Use ref to get current waiting state
+            if (isWaitingRef.current) {
               if (raceDataFromDB.race_state === 'pre-race' || raceDataFromDB.race_state === 'finished') {
                 console.log('✅ New race started - client can now participate');
                 setIsWaitingForNewRace(false);
+                isWaitingRef.current = false;
                 setRaceData(raceDataFromDB);
               } else {
                 console.log(`🚫 Still waiting for new race - current state: ${raceDataFromDB.race_state}`);
