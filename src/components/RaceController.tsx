@@ -16,7 +16,17 @@ interface RaceControllerProps {
   isWaitingForNewRace?: boolean; // Add prop for mid-race blocking
 }
 
-export default function RaceController() {
+export default function RaceController({
+  horses,
+  onRaceProgress,
+  onRaceComplete,
+  onRaceStateChange,
+  raceState,
+  preRaceTimer,
+  countdownTimer,
+  raceTimer,
+  isWaitingForNewRace
+}: RaceControllerProps) {
   // Client-side timer for smooth countdown
   const [clientTimer, setClientTimer] = useState(0);
   const [clientCountdown, setClientCountdown] = useState(0);
