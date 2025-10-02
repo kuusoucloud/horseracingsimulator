@@ -162,6 +162,15 @@ export type Database = {
         }
         Returns: number
       }
+      calculate_elo_change_unified: {
+        Args: {
+          current_elo: number
+          opponent_avg_elo: number
+          placement: number
+          total_horses: number
+        }
+        Returns: number
+      }
       calculate_elo_odds: {
         Args: { all_horse_elos: number[]; horse_elo: number }
         Returns: number
@@ -192,6 +201,10 @@ export type Database = {
       }
       update_horse_elo_after_race: {
         Args: { race_results: Json }
+        Returns: undefined
+      }
+      update_horse_elos_after_race: {
+        Args: { horse_lineup: string[]; race_results: Json }
         Returns: undefined
       }
       update_race_state_high_frequency: {

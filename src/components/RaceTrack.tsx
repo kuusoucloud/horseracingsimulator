@@ -168,7 +168,7 @@ function getEloAuraColor(elo: number): string | null {
   return null; // No aura for lower tiers
 }
 
-// Get ELO tier name for display - matching HorseLineup
+// Get ELO tier name for display - matching HorseLineup and unified system
 function getEloTierName(elo: number): string {
   if (elo >= 2000) return "MYTHICAL";
   if (elo >= 1900) return "LEGENDARY";
@@ -426,9 +426,9 @@ function SmoothHorse({
   // Use horse's individual color for the horse body
   const horseColor = horse.color || "#8B4513"; // Fallback to brown
 
-  // Get ELO-based aura color
-  const auraColor = getEloAuraColor(horse.elo || 0);
-  const eloTier = getEloTierName(horse.elo || 0);
+  // Get ELO-based aura color and tier (using unified system)
+  const auraColor = getEloAuraColor(horse.elo || 500);
+  const eloTier = getEloTierName(horse.elo || 500);
 
   // Calculate race progress percentage and use horse's individual sprint start
   const raceProgressPercent = (position / 1200) * 100;
@@ -444,7 +444,7 @@ function SmoothHorse({
     if (isRacing && raceStartTime === null) {
       setRaceStartTime(clock.getElapsedTime());
       console.log(
-        `🏁 Race timer reset for ${horse.name} at ${clock.getElapsedTime().toFixed(3)}s`,
+        `🏁 Race timer reset for ${horse.name} (ELO: ${horse.elo}) at ${clock.getElapsedTime().toFixed(3)}s`,
       );
     }
 
@@ -480,30 +480,24 @@ function SmoothHorse({
       setHasFinished(true);
       const finishTime = raceElapsedTime;
       console.log(
-        `🐎 3D Horse ${horse.name} reached finish line at ${finishTime.toFixed(3)}s (X: ${desiredX.toFixed(2)})`,
+        `🐎 3D Horse ${horse.name} (ELO: ${horse.elo}) reached finish line at ${finishTime.toFixed(3)}s (X: ${desiredX.toFixed(2)})`,
       );
 
       // Notify finish line detector that this horse has finished
       if (window.finishLineDetector) {
-        console.log(`📡 Notifying finish line detector for ${horse.name}`);
+        console.log(`📡 Notifying finish line detector for ${horse.name} (ELO: ${horse.elo})`);
         try {
           window.finishLineDetector.recordFinish(
             horse.id,
             horse.name,
             finishTime,
           );
-          console.log(`✅ Successfully recorded finish for ${horse.name}`);
+          console.log(`✅ Successfully recorded finish for ${horse.name} (ELO: ${horse.elo})`);
         } catch (error) {
           console.error(`❌ Error recording finish for ${horse.name}:`, error);
         }
       } else {
         console.error(`❌ No finish line detector found for ${horse.name}!`);
-        console.log(
-          "Available window properties:",
-          Object.keys(window).filter(
-            (k) => k.includes("finish") || k.includes("race"),
-          ),
-        );
       }
     }
 
@@ -591,7 +585,7 @@ function SmoothHorse({
         baseScale + Math.sin(time * flickerSpeed + index) * flickerAmplitude;
       auraRef.current.scale.set(scale, 1, scale); // Only scale X and Z to keep ring flat
 
-      // Tier-specific animations
+      // Tier-specific animations based on unified ELO system
       if (horse.elo >= 2000) {
         // Mythical: Complex rotation + levitation
         auraRef.current.rotation.y = time * 0.2 + index;
@@ -1078,7 +1072,7 @@ function SmoothHorse({
         #{horse.lane || index + 1} {horse.name}
       </Text>
 
-      {/* ELO tier indicator for elite horses */}
+      {/* ELO tier indicator for elite horses - using unified system */}
       {auraColor && (
         <Text
           position={[-2.5, 0.1, 0]}

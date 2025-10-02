@@ -35,6 +35,7 @@ interface RaceResult {
     before: number;
     after: number;
     change: number;
+    kFactor: number; // Add K-factor to display
   };
 }
 
@@ -55,50 +56,47 @@ export default function RaceResults({
 }: RaceResultsProps) {
   const [countdown, setCountdown] = useState(10);
 
-  // Calculate ELO changes when results are available
+  // Calculate ELO changes using the unified system with correct K-factors
   const resultsWithEloChanges = useMemo(() => {
     if (!results || results.length === 0) return [];
 
     const sortedResults = [...results].sort((a, b) => a.placement - b.placement);
-    const currentRatings = getStoredEloRatings();
     
-    // Calculate ELO changes for each horse
+    // Calculate average ELO of all horses in the race
+    const totalElo = sortedResults.reduce((sum, result) => {
+      const horseName = result.horse?.name || result.name;
+      const currentElo = result.horse?.elo || 500; // Use horse ELO from race data
+      return sum + currentElo;
+    }, 0);
+    const avgElo = totalElo / sortedResults.length;
+    
+    // Calculate ELO changes for each horse using unified system
     const resultsWithChanges = sortedResults.map(result => {
       const horseName = result.horse?.name || result.name;
-      const currentElo = currentRatings[horseName] || STARTING_ELO;
+      const currentElo = result.horse?.elo || 500;
+      const placement = result.placement;
       
-      // Calculate expected ELO change based on placement
-      let eloChange = 0;
-      const totalHorses = sortedResults.length;
+      // K-factor based on placement (matching database function)
+      const kFactor = placement <= 3 ? 192 : 32;
       
-      // Use the same ELO calculation logic as in horses.ts
-      for (let i = 0; i < sortedResults.length; i++) {
-        for (let j = i + 1; j < sortedResults.length; j++) {
-          const horse1 = sortedResults[i];
-          const horse2 = sortedResults[j];
-          
-          if (horse1.name === horseName || horse2.name === horseName) {
-            const horse1Name = horse1.horse?.name || horse1.name;
-            const horse2Name = horse2.horse?.name || horse2.name;
-            
-            const rating1 = currentRatings[horse1Name] || STARTING_ELO;
-            const rating2 = currentRatings[horse2Name] || STARTING_ELO;
-            
-            const expected1 = 1 / (1 + Math.pow(10, (rating2 - rating1) / 400));
-            const expected2 = 1 / (1 + Math.pow(10, (rating1 - rating2) / 400));
-            
-            const k1 = horse1.placement <= 3 ? 192 : 32; // K_FACTOR_PODIUM : K_FACTOR_OTHERS
-            const k2 = horse2.placement <= 3 ? 192 : 32;
-            
-            if (horse1Name === horseName) {
-              eloChange += k1 * (1 - expected1);
-            } else if (horse2Name === horseName) {
-              eloChange += k2 * (0 - expected2);
-            }
-          }
-        }
+      // Expected score based on ELO difference (standard ELO formula)
+      const expectedScore = 1.0 / (1.0 + Math.pow(10, (avgElo - currentElo) / 400));
+      
+      // Actual score based on placement (matching database function)
+      let actualScore;
+      switch (placement) {
+        case 1: actualScore = 1.0; break;    // Winner gets full score
+        case 2: actualScore = 0.8; break;    // 2nd place gets 80%
+        case 3: actualScore = 0.6; break;    // 3rd place gets 60%
+        case 4: actualScore = 0.4; break;    // 4th place gets 40%
+        case 5: actualScore = 0.3; break;    // 5th place gets 30%
+        case 6: actualScore = 0.2; break;    // 6th place gets 20%
+        case 7: actualScore = 0.1; break;    // 7th place gets 10%
+        default: actualScore = 0.0; break;   // Last place gets 0%
       }
       
+      // Calculate ELO change
+      const eloChange = Math.round(kFactor * (actualScore - expectedScore));
       const newElo = Math.max(100, currentElo + eloChange);
       
       return {
@@ -106,7 +104,8 @@ export default function RaceResults({
         eloChange: {
           before: currentElo,
           after: newElo,
-          change: Math.round(eloChange)
+          change: eloChange,
+          kFactor: kFactor
         }
       };
     });
@@ -200,7 +199,7 @@ export default function RaceResults({
             Race Results
           </DialogTitle>
           <DialogDescription className="text-center text-cyan-300/80">
-            Official race results with ELO rating changes
+            Official race results with ELO rating changes (K-factor: 192 for top 3, 32 for others)
           </DialogDescription>
         </DialogHeader>
 
@@ -209,8 +208,6 @@ export default function RaceResults({
           <div className="grid grid-cols-3 gap-4 mb-6">
             {podiumHorses.map((horse, index) => {
               const horseName = horse.horse?.name || horse.name;
-              const horseStats = getStoredHorseStats();
-              const totalWins = horseStats[horseName]?.wins || 0;
 
               return (
                 <div
@@ -233,25 +230,17 @@ export default function RaceResults({
                     {horseName}
                   </h3>
 
-                  {/* Career Wins Display */}
-                  <div className="flex items-center justify-center gap-1 mb-2">
-                    <Trophy className="w-4 h-4 text-yellow-400" />
-                    <span className="text-yellow-300 text-sm font-bold">
-                      {totalWins} wins
-                    </span>
-                  </div>
-
-                  {/* ELO Display with Change */}
+                  {/* ELO Display with Change and K-factor */}
                   <div className="space-y-2 mb-2">
                     <div className="bg-white/10 rounded-lg p-3">
                       <div className="text-white/70 text-xs mb-2">
                         ELO Rating
                       </div>
                       <div className="text-white font-mono text-lg font-bold mb-2">
-                        {Math.round(horse.eloChange?.after || horse.eloChange?.before || STARTING_ELO)}
+                        {Math.round(horse.eloChange?.after || horse.eloChange?.before || 500)}
                       </div>
 
-                      {/* ELO Change Display */}
+                      {/* ELO Change Display with K-factor */}
                       {horse.eloChange && (
                         <div className="text-xs space-y-1 border-t border-white/20 pt-2">
                           <div className="text-white/60">
@@ -268,6 +257,9 @@ export default function RaceResults({
                           >
                             {horse.eloChange.change > 0 ? "+" : ""}
                             {horse.eloChange.change} ELO
+                          </div>
+                          <div className="text-white/50 text-xs">
+                            K-factor: {horse.eloChange.kFactor}
                           </div>
                         </div>
                       )}
@@ -317,12 +309,17 @@ export default function RaceResults({
                           <span className="text-white/60">Lane {horse.lane}</span>
                           <span className="text-emerald-300">{(horse.horse?.odds || horse.odds || 1).toFixed(2)}</span>
                           {horse.eloChange && (
-                            <span className={`font-bold ${
-                              horse.eloChange.change > 0 ? 'text-green-400' : 
-                              horse.eloChange.change < 0 ? 'text-red-400' : 'text-gray-400'
-                            }`}>
-                              {horse.eloChange.change > 0 ? '+' : ''}{horse.eloChange.change} ELO
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className={`font-bold ${
+                                horse.eloChange.change > 0 ? 'text-green-400' : 
+                                horse.eloChange.change < 0 ? 'text-red-400' : 'text-gray-400'
+                              }`}>
+                                {horse.eloChange.change > 0 ? '+' : ''}{horse.eloChange.change} ELO
+                              </span>
+                              <span className="text-white/40 text-xs">
+                                (K:{horse.eloChange.kFactor})
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>
