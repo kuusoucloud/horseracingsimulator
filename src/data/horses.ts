@@ -1188,7 +1188,7 @@ export function generateRandomHorses(count: number = 8): any[] {
   });
 }
 
-// Calculate odds based on ELO ratings of horses in the race
+// Calculate balanced odds based on ELO ratings of all horses in the race
 export function calculateOddsFromELO(horses: HorseData[]): { name: string; odds: number }[] {
   // Sort horses by ELO descending to ensure proper ranking
   const sortedHorses = [...horses].sort((a, b) => b.elo - a.elo);
@@ -1200,7 +1200,7 @@ export function calculateOddsFromELO(horses: HorseData[]): { name: string; odds:
     let thisHorseStrength = 0;
     
     sortedHorses.forEach(h => {
-      // Use exponential scaling to make ELO differences MUCH more dramatic
+      // Use exponential scaling to make ELO differences dramatic but fair
       const strength = Math.pow(10, h.elo / 400); // Chess-like ELO scaling
       totalStrength += strength;
       if (h.name === horse.name) {
@@ -1211,52 +1211,52 @@ export function calculateOddsFromELO(horses: HorseData[]): { name: string; odds:
     // Base probability from relative strength
     let probability = thisHorseStrength / totalStrength;
     
-    // Apply tier-based multipliers for even more dramatic differences
+    // Apply balanced tier-based multipliers
     if (horse.elo >= 2000) {
-      probability *= 1.5; // Mythical boost
-    } else if (horse.elo >= 1900) {
-      probability *= 1.3; // Legendary boost
+      probability *= 1.4; // Mythical boost
     } else if (horse.elo >= 1800) {
-      probability *= 1.2; // Champion boost
+      probability *= 1.3; // Legendary boost
     } else if (horse.elo >= 1600) {
+      probability *= 1.2; // Champion boost
+    } else if (horse.elo >= 1400) {
       probability *= 1.1; // Elite boost
     } else if (horse.elo < 1000) {
-      probability *= 0.7; // Weak penalty
+      probability *= 0.8; // Weak penalty
     } else if (horse.elo < 800) {
-      probability *= 0.5; // Very weak penalty
+      probability *= 0.6; // Very weak penalty
     }
     
-    return { name: horse.name, probability: Math.max(0.005, probability) };
+    return { name: horse.name, probability: Math.max(0.01, probability) };
   });
   
-  // Normalize probabilities
+  // Normalize probabilities to ensure they sum to 1
   const totalProb = probabilities.reduce((sum, p) => sum + p.probability, 0);
   const normalizedProbs = probabilities.map(p => ({
     name: p.name,
     probability: p.probability / totalProb
   }));
   
-  // Convert to odds with minimal house edge
+  // Convert to fair odds with minimal house edge (2%)
   return normalizedProbs.map(p => {
-    const adjustedProb = p.probability * 0.98;
+    const adjustedProb = p.probability * 0.98; // 2% house edge
     let odds = 1 / adjustedProb;
     
-    // Round appropriately
+    // Round odds appropriately for better UX
     if (odds < 1.5) {
-      odds = Math.round(odds * 100) / 100;
+      odds = Math.round(odds * 100) / 100; // 2 decimal places for favorites
     } else if (odds < 5) {
-      odds = Math.round(odds * 20) / 20;
+      odds = Math.round(odds * 20) / 20; // 0.05 increments
     } else if (odds < 15) {
-      odds = Math.round(odds * 10) / 10;
+      odds = Math.round(odds * 10) / 10; // 0.1 increments
     } else if (odds < 50) {
-      odds = Math.round(odds * 2) / 2;
+      odds = Math.round(odds * 2) / 2; // 0.5 increments
     } else {
-      odds = Math.round(odds);
+      odds = Math.round(odds); // Whole numbers for longshots
     }
     
     return {
       name: p.name,
-      odds: Math.max(1.01, odds)
+      odds: Math.max(1.01, Math.min(999, odds)) // Reasonable bounds
     };
   });
 }

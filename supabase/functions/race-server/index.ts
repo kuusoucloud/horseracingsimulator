@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { generateRandomHorses, calculateOddsFromELO } from './horses.ts'
+import { generateRandomHorses } from './horses.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -56,17 +56,28 @@ Deno.serve(async (req) => {
 
     // If no race or race finished, create new one
     if (!existingRace || existingRace.race_state === 'finished') {
-      console.log('🏇 Creating new race...')
+      console.log('🏇 Creating new race with balanced ELO-based odds...')
       
       try {
-        const newHorses = generateRandomHorses(8).map((horse, index) => ({
-          ...horse,
-          odds: calculateOddsFromELO(horse.elo),
+        // Generate horses with current ELO ratings and balanced odds
+        const newHorses = await generateRandomHorses(8, supabaseClient)
+        
+        // Map to race format
+        const raceHorses = newHorses.map((horse, index) => ({
+          id: horse.id,
+          name: horse.name,
+          elo: horse.elo,
+          odds: horse.odds,
           position: 0,
           lane: index + 1,
           finishTime: null,
           placement: null
         }))
+        
+        console.log('🏇 Generated horses with ELO-based odds:')
+        raceHorses.forEach(horse => {
+          console.log(`  ${horse.name}: ELO ${horse.elo} → Odds ${horse.odds}`)
+        })
         
         const weatherConditions = {
           timeOfDay: "day",
@@ -80,7 +91,7 @@ Deno.serve(async (req) => {
 
         const newRaceData = {
           race_state: 'pre-race',
-          horses: newHorses,
+          horses: raceHorses,
           race_progress: {},
           pre_race_timer: 10,
           countdown_timer: 0,
@@ -124,14 +135,15 @@ Deno.serve(async (req) => {
           )
         }
 
-        console.log('✅ New race created successfully')
+        console.log('✅ New race created successfully with balanced ELO-based odds')
         return new Response(
           JSON.stringify({ 
             success: true,
-            message: 'New race created successfully',
+            message: 'New race created with balanced ELO-based odds',
             race_id: newRace.id,
-            horses: newHorses.length,
-            state: 'pre-race'
+            horses: raceHorses.length,
+            state: 'pre-race',
+            odds_summary: raceHorses.map(h => ({ name: h.name, elo: h.elo, odds: h.odds }))
           }),
           { 
             status: 200, 
