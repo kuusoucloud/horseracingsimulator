@@ -192,13 +192,13 @@ export function useRaceSync() {
           let clientPosition;
           let predictedPosition;
           
-          if (existingHorse && timeSinceLastUpdate < 500) { // 500ms max prediction
-            // Client-side prediction: continue from last position with velocity
+          if (existingHorse && timeSinceLastUpdate < 200) { // 200ms max prediction (4x more responsive)
+            // Ultra-aggressive client-side prediction
             const deltaTime = timeSinceLastUpdate / 1000; // Convert to seconds
             predictedPosition = existingHorse.clientPosition + (velocity * deltaTime);
             
-            // Smooth correction towards server position (multiplayer reconciliation)
-            const correctionStrength = Math.min(timeSinceLastUpdate / 200, 0.5); // Max 50% correction
+            // Much more aggressive correction towards server position
+            const correctionStrength = Math.min(timeSinceLastUpdate / 100, 0.8); // Max 80% correction, faster response
             clientPosition = predictedPosition * (1 - correctionStrength) + horse.position * correctionStrength;
           } else {
             // First update or too much lag - snap to server position
@@ -249,11 +249,11 @@ export function useRaceSync() {
     };
   }, [raceData, lastServerUpdate.current]);
 
-  // High-frequency server timer (10fps = 100ms for smooth multiplayer experience)
+  // High-frequency server timer (20fps = 50ms for ultra-smooth multiplayer experience)
   useEffect(() => {
     if (!supabase || !isConnected) return;
 
-    console.log('⚡ Starting high-frequency race timer (10fps)...');
+    console.log('⚡ Starting ultra-high-frequency race timer (20fps)...');
     
     timerInterval.current = setInterval(async () => {
       try {
@@ -268,7 +268,7 @@ export function useRaceSync() {
       } catch (error) {
         console.error('❌ Timer error:', error);
       }
-    }, 100); // 100ms = 10fps server updates (multiplayer game standard)
+    }, 50); // 50ms = 20fps server updates (ultra-smooth multiplayer)
 
     return () => {
       if (timerInterval.current) {
@@ -307,9 +307,44 @@ export function useRaceSync() {
   }, [raceData]);
 
   const getWeatherConditions = useCallback(() => {
-    return raceData?.weather_conditions || {
-      timeOfDay: "day",
-      weather: "clear",
+    const serverWeather = raceData?.weather_conditions;
+    
+    // Handle different weather formats from server
+    if (serverWeather && typeof serverWeather === 'object') {
+      // Check if it's the new server format with condition, humidity, temperature, windSpeed
+      if ('condition' in serverWeather && 'humidity' in serverWeather) {
+        console.log('🌤️ Converting server weather format:', serverWeather);
+        
+        // Convert server weather format to client format
+        const condition = serverWeather.condition as string;
+        const isRainy = condition === 'rainy' || condition === 'rain';
+        const isTwilight = condition === 'twilight' || condition === 'night';
+        
+        return {
+          timeOfDay: isTwilight ? "night" as const : "day" as const,
+          weather: isRainy ? "rain" as const : "clear" as const,
+          skyColor: isTwilight 
+            ? (isRainy ? "#4a4a6b" : "#6a5acd")
+            : (isRainy ? "#6b7280" : "#87ceeb"),
+          ambientIntensity: isTwilight ? 0.6 : 0.4,
+          directionalIntensity: isRainy ? 0.7 : (isTwilight ? 0.8 : 1.0),
+          trackColor: isRainy ? "#5d4e37" : "#8B4513",
+          grassColor: isRainy ? "#2d5a2d" : (isTwilight ? "#228b22" : "#32cd32"),
+        };
+      }
+      
+      // Check if it's already in the correct client format
+      if ('timeOfDay' in serverWeather && 'weather' in serverWeather) {
+        console.log('✅ Using existing client weather format:', serverWeather);
+        return serverWeather as any;
+      }
+    }
+    
+    // Fallback to default conditions
+    console.log('⚠️ Using default weather conditions');
+    return {
+      timeOfDay: "day" as const,
+      weather: "clear" as const,
       skyColor: "#87ceeb",
       ambientIntensity: 0.4,
       directionalIntensity: 1.0,

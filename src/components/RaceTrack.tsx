@@ -300,7 +300,7 @@ function FollowCamera({
     }
 
     // Only update if target has changed significantly (reduces jitter)
-    if (Math.abs(newTargetX - targetCameraX) > 0.3) {
+    if (Math.abs(newTargetX - targetCameraX) > 0.1) { // Much more sensitive to changes
       setTargetCameraX(newTargetX);
       lastTargetUpdate.current = now;
     }
@@ -314,11 +314,11 @@ function FollowCamera({
     const maxDelta = 0.016; // Cap at 60fps equivalent
     const cappedDelta = Math.min(delta, maxDelta);
     
-    // Different interpolation speeds based on racing state
-    const interpolationSpeed = isRacing ? 8.0 : 4.0; // Faster during racing
+    // Much faster interpolation speeds for ultra-responsive camera
+    const interpolationSpeed = isRacing ? 20.0 : 10.0; // Much faster during racing
     const lerpFactor = Math.min(cappedDelta * interpolationSpeed, 1.0);
     
-    // Calculate smooth camera position
+    // Calculate ultra-smooth camera position
     const newX = smoothCameraX + (targetCameraX - smoothCameraX) * lerpFactor;
     setSmoothCameraX(newX);
 
@@ -459,11 +459,11 @@ function SmoothHorse({
       raceStartTime !== null ? clock.getElapsedTime() - raceStartTime : 0;
     setElapsedTime(raceElapsedTime);
 
-    // Multiplayer-style smooth interpolation - no fighting with server updates
-    const interpolationSpeed = isRacing ? 15.0 : 8.0; // Smooth but responsive
+    // Ultra-aggressive smooth interpolation - maximum responsiveness
+    const interpolationSpeed = isRacing ? 35.0 : 15.0; // Much faster interpolation
     const maxDelta = 0.016; // Cap delta to prevent jumps
 
-    // Calculate desired position with smooth interpolation
+    // Calculate desired position with ultra-aggressive interpolation
     const cappedDelta = Math.min(delta, maxDelta);
     const lerpFactor = Math.min(cappedDelta * interpolationSpeed, 1.0);
     
@@ -507,61 +507,61 @@ function SmoothHorse({
       }
     }
 
-    // Update positions with multiplayer-smooth interpolation
+    // Update positions with ultra-aggressive interpolation
     setCurrentX(desiredX);
     setCurrentZ(desiredZ);
 
-    // Update group position with smooth movement
+    // Update group position with ultra-smooth movement
     groupRef.current.position.set(desiredX, 1, desiredZ);
 
-    // Smooth galloping animation - perfectly synced with movement
+    // Ultra-smooth galloping animation - perfectly synced with movement
     if (horseBodyRef.current && isRacing) {
       const time = clock.getElapsedTime();
-      const speed = 12; // Consistent galloping speed
-      const amplitude = 0.2; // Smooth bobbing
+      const speed = 18; // Faster galloping for more dynamic feel
+      const amplitude = 0.25; // More pronounced bobbing
       
-      // Smooth sine wave for body movement
+      // Ultra-smooth sine wave for body movement
       horseBodyRef.current.position.y = Math.sin(time * speed + index) * amplitude;
       
-      // Slight forward/backward motion for galloping effect
-      horseBodyRef.current.position.x = Math.sin(time * speed * 0.5 + index) * 0.08;
+      // More pronounced forward/backward motion for galloping effect
+      horseBodyRef.current.position.x = Math.sin(time * speed * 0.5 + index) * 0.12;
     } else if (horseBodyRef.current) {
-      // Smooth return to neutral position when not racing
+      // Ultra-smooth return to neutral position when not racing
       horseBodyRef.current.position.y = THREE.MathUtils.lerp(
         horseBodyRef.current.position.y,
         0,
-        0.1,
+        0.2, // Faster return to neutral
       );
       horseBodyRef.current.position.x = THREE.MathUtils.lerp(
         horseBodyRef.current.position.x,
         0,
-        0.1,
+        0.2,
       );
     }
 
     // Enhanced whip animation during sprint phase
     if (whipRef.current && isRacing && isInSprintPhase) {
       const time = clock.getElapsedTime();
-      const whipSpeed = 6; // Smooth whipping motion
-      const whipAmplitude = Math.PI / 3; // Controlled swing
+      const whipSpeed = 10; // Much faster whipping motion
+      const whipAmplitude = Math.PI / 2.5; // Wider swing
 
-      // Smooth whipping motion
+      // Ultra-dynamic whipping motion
       const whipRotation = Math.sin(time * whipSpeed + index) * whipAmplitude;
       whipRef.current.rotation.z = -Math.PI / 4 + whipRotation;
 
-      // Smooth up-down motion
-      whipRef.current.position.y = 0.2 + Math.abs(Math.sin(time * whipSpeed + index)) * 0.1;
+      // More pronounced up-down motion
+      whipRef.current.position.y = 0.2 + Math.abs(Math.sin(time * whipSpeed + index)) * 0.18;
     } else if (whipRef.current) {
-      // Smooth return to neutral position
+      // Ultra-smooth return to neutral position
       whipRef.current.rotation.z = THREE.MathUtils.lerp(
         whipRef.current.rotation.z,
         -Math.PI / 4,
-        0.1,
+        0.2,
       );
       whipRef.current.position.y = THREE.MathUtils.lerp(
         whipRef.current.position.y,
         0.2,
-        0.1,
+        0.2,
       );
     }
 
@@ -1298,25 +1298,46 @@ export default function RaceTrack({
 
   // Use server weather conditions if available, otherwise generate client-side fallback
   const weatherConditions = useMemo(() => {
-    console.log('🌤️ Using server weather conditions:', serverWeatherConditions);
+    console.log('🌤️ Processing server weather conditions:', serverWeatherConditions);
     
     if (serverWeatherConditions && typeof serverWeatherConditions === 'object') {
-      // Validate that the server weather has all required fields
-      if (serverWeatherConditions.timeOfDay && 
-          serverWeatherConditions.weather && 
-          serverWeatherConditions.skyColor &&
-          typeof serverWeatherConditions.ambientIntensity === 'number') {
-        console.log('✅ Valid server weather found:', serverWeatherConditions);
-        return serverWeatherConditions as WeatherConditions;
-      } else {
-        console.log('❌ Invalid server weather structure:', serverWeatherConditions);
+      // Handle new server format with condition, humidity, temperature, windSpeed
+      if ('condition' in serverWeatherConditions && 'humidity' in serverWeatherConditions) {
+        console.log('🌤️ Converting server weather format:', serverWeatherConditions);
+        
+        const condition = (serverWeatherConditions as any).condition as string;
+        const isRainy = condition === 'rainy' || condition === 'rain';
+        const isTwilight = condition === 'twilight' || condition === 'night';
+        
+        const convertedWeather = {
+          timeOfDay: isTwilight ? "night" as const : "day" as const,
+          weather: isRainy ? "rain" as const : "clear" as const,
+          skyColor: isTwilight 
+            ? (isRainy ? "#4a4a6b" : "#6a5acd")
+            : (isRainy ? "#6b7280" : "#87ceeb"),
+          ambientIntensity: isTwilight ? 0.6 : 0.4,
+          directionalIntensity: isRainy ? 0.7 : (isTwilight ? 0.8 : 1.0),
+          trackColor: isRainy ? "#5d4e37" : "#8B4513",
+          grassColor: isRainy ? "#2d5a2d" : (isTwilight ? "#228b22" : "#32cd32"),
+        };
+        
+        console.log('✅ Converted weather:', convertedWeather);
+        return convertedWeather;
       }
+      
+      // Handle existing client format
+      if ('timeOfDay' in serverWeatherConditions && 'weather' in serverWeatherConditions) {
+        console.log('✅ Using existing client weather format:', serverWeatherConditions);
+        return serverWeatherConditions as WeatherConditions;
+      }
+      
+      console.log('❌ Unknown server weather structure:', serverWeatherConditions);
     } else {
       console.log('❌ No server weather or invalid type:', typeof serverWeatherConditions, serverWeatherConditions);
     }
     
-    // Fallback to default conditions (deterministic, no random)
-    console.log('⚠️ No valid server weather found, using default conditions');
+    // Fallback to default conditions
+    console.log('⚠️ Using default weather conditions');
     return {
       timeOfDay: "day" as const,
       weather: "clear" as const,
