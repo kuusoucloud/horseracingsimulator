@@ -411,10 +411,20 @@ export function useRaceSync() {
     return raceData?.race_results || [];
   }, [raceData?.race_results]);
 
-  // STABLE weather conditions - prevent flickering with ref caching
+  // STABLE weather conditions - prevent flickering with better caching
   const weatherConditionsRef = useRef<any>(null);
+  const lastWeatherHashRef = useRef<string>('');
+  
   const getWeatherConditions = useCallback(() => {
     const serverWeather = raceData?.weather_conditions;
+    
+    // Create a hash of the server weather to detect actual changes
+    const weatherHash = JSON.stringify(serverWeather);
+    
+    // If weather hasn't actually changed, return cached version
+    if (weatherHash === lastWeatherHashRef.current && weatherConditionsRef.current) {
+      return weatherConditionsRef.current;
+    }
     
     // If no server weather data, return cached or default
     if (!serverWeather) {
@@ -432,6 +442,7 @@ export function useRaceSync() {
         grassColor: "#32cd32"
       };
       weatherConditionsRef.current = defaultWeather;
+      lastWeatherHashRef.current = weatherHash;
       return defaultWeather;
     }
     
@@ -463,12 +474,12 @@ export function useRaceSync() {
       }
       
       // Only update cache if weather actually changed
-      if (processedWeather && JSON.stringify(processedWeather) !== JSON.stringify(weatherConditionsRef.current)) {
+      if (processedWeather) {
         console.log('🌤️ Weather conditions updated:', processedWeather);
         weatherConditionsRef.current = processedWeather;
+        lastWeatherHashRef.current = weatherHash;
+        return processedWeather;
       }
-      
-      return weatherConditionsRef.current || processedWeather;
     }
     
     // Return cached weather if available
