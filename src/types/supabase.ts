@@ -149,6 +149,10 @@ export type Database = {
         }
         Returns: number
       }
+      start_new_race: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       trigger_race_tick: {
         Args: Record<PropertyKey, never>
         Returns: undefined
