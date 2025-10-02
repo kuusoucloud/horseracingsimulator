@@ -197,7 +197,8 @@ export function useRaceSync() {
           const predictedPosition = Math.min(1200, horse.serverPosition + (horse.velocity * predictionTime));
           
           // Only update if position changed significantly (reduces unnecessary renders)
-          if (Math.abs(predictedPosition - horse.position) > 0.5) {
+          const currentPosition = horse.position || 0;
+          if (Math.abs(predictedPosition - currentPosition) > 0.5) {
             hasChanges = true;
             return {
               ...horse,
