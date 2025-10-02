@@ -137,7 +137,7 @@ export default function Home() {
           name: h.name,
           position: h.position || 0,
           elo: h.elo,
-          isSmooth: h.clientPosition !== undefined // Check if this is a smooth horse
+          isSmooth: (h as any).clientPosition !== undefined // Check if this is a smooth horse
         }))
       });
     }
