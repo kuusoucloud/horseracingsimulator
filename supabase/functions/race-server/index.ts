@@ -222,10 +222,7 @@ async function runRaceTick(supabase: any) {
         })
         .eq('id', currentRace.id);
       
-      // Schedule new race in 5 seconds
-      setTimeout(async () => {
-        await createNewRace(supabase);
-      }, 5000);
+      // Don't use setTimeout - let the finished state handler create new race
     } else {
       // Update horse positions and race timer
       await supabase
@@ -240,11 +237,11 @@ async function runRaceTick(supabase: any) {
     return;
   }
 
-  // Handle finished state - create new race after 10 seconds
+  // Handle finished state - create new race after 5 seconds (reduced from 10)
   if (currentRace.race_state === 'finished') {
     const finishAge = (now.getTime() - new Date(currentRace.race_end_time || currentRace.updated_at).getTime()) / 1000;
     
-    if (finishAge >= 10) {
+    if (finishAge >= 5) {
       console.log('🆕 Creating new race after finish...');
       await createNewRace(supabase);
     }
