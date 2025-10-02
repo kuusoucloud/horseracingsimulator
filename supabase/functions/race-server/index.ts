@@ -241,15 +241,20 @@ async function runRaceTick(supabase: any) {
   if (currentRace.race_state === 'finished') {
     const finishAge = (now.getTime() - new Date(currentRace.race_end_time || currentRace.updated_at).getTime()) / 1000;
     
+    console.log(`⏱️ Race finished ${finishAge.toFixed(1)}s ago, waiting for 15s to create new race...`);
+    
     if (finishAge >= 15) {
-      console.log('🆕 Creating new race after 15 seconds...');
+      console.log('🆕 15 seconds elapsed, creating new race now...');
       await createNewRace(supabase);
+      console.log('✅ New race creation attempt completed');
     }
   }
 }
 
 async function createNewRace(supabase: any) {
   try {
+    console.log('🔄 Starting new race creation process...');
+    
     // Get random horses
     const { data: horses, error: horsesError } = await supabase
       .from('horses')
@@ -260,6 +265,8 @@ async function createNewRace(supabase: any) {
       console.error('❌ Error fetching horses:', horsesError);
       return;
     }
+
+    console.log(`🐎 Found ${horses.length} horses, creating race lineup...`);
 
     // Shuffle and select 8 horses
     const selectedHorses = horses
@@ -277,6 +284,7 @@ async function createNewRace(supabase: any) {
 
     const now = new Date();
     
+    console.log('💾 Inserting new race into database...');
     const { error: insertError } = await supabase
       .from('race_state')
       .insert({
@@ -297,11 +305,13 @@ async function createNewRace(supabase: any) {
 
     if (insertError) {
       console.error('❌ Error creating race:', insertError);
+      console.error('❌ Insert error details:', JSON.stringify(insertError, null, 2));
     } else {
-      console.log('✅ New race created successfully');
+      console.log('✅ New race created successfully - race should start in pre-race state');
     }
   } catch (error) {
     console.error('❌ Error in createNewRace:', error);
+    console.error('❌ Full error details:', JSON.stringify(error, null, 2));
   }
 }
 
