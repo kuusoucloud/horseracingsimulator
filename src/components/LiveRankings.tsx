@@ -27,10 +27,11 @@ export default function LiveRankings({
 
   // Sort horses by position (furthest distance first) and ensure unique horses
   const sortedHorses = [...progress]
-    .filter((horse) => horse.horse?.name && horse.horse?.id) // Only show horses with valid data
+    .filter((horse) => horse.id || horse.horse?.id) // Show horses with any valid ID
     .reduce((unique, horse) => {
-      // Remove duplicates by horse ID
-      const exists = unique.find(h => h.horse?.id === horse.horse?.id);
+      // Remove duplicates by horse ID (use main ID if horse.id not available)
+      const horseId = horse.horse?.id || horse.id;
+      const exists = unique.find(h => (h.horse?.id || h.id) === horseId);
       if (!exists) {
         unique.push(horse);
       }
@@ -72,7 +73,7 @@ export default function LiveRankings({
                     #{rankPosition}
                   </span>
                   <span className="text-white text-xs max-w-[50px] truncate">
-                    {horse?.name || "Unknown"}
+                    {horse?.name || horseProgress.name || `Horse ${rankPosition}`}
                   </span>
                   <span className="text-green-400 font-mono text-xs">
                     {position}m
