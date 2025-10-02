@@ -338,8 +338,16 @@ export function useRaceSync() {
 
   // Helper functions for components
   const getCurrentHorses = useCallback(() => {
-    // Always return smooth horses with client prediction
-    return smoothHorses.length > 0 ? smoothHorses : (raceData?.horses || []);
+    // ALWAYS return smooth horses with client prediction during racing
+    if (raceData?.race_state === 'racing' && smoothHorses.length > 0) {
+      console.log('🏇 Returning smooth horses for racing:', smoothHorses.length);
+      return smoothHorses;
+    }
+    
+    // Return regular horses for non-racing states
+    const regularHorses = raceData?.horses || [];
+    console.log('🏇 Returning regular horses for non-racing:', regularHorses.length);
+    return regularHorses;
   }, [smoothHorses, raceData]);
 
   const getRaceState = useCallback(() => {
