@@ -61,6 +61,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (body.action === 'force_new_race') {
+      console.log('🔧 Force new race requested');
+      await createNewRace(supabase);
+      return new Response(JSON.stringify({ success: true, message: 'New race created' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Default action: single tick
     await runRaceTick(supabase);
     

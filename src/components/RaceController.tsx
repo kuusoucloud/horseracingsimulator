@@ -57,6 +57,26 @@ export default function RaceController({
     }
   };
 
+  // Add manual race creation for testing
+  const handleManualNewRace = async () => {
+    if (!supabase) return;
+    
+    console.log('🔧 Manually triggering new race creation...');
+    try {
+      const { data, error } = await supabase.functions.invoke('supabase-functions-race-server', {
+        body: { action: 'force_new_race' }
+      });
+      
+      if (error) {
+        console.error('❌ Manual race creation error:', error);
+      } else {
+        console.log('✅ Manual race creation result:', data);
+      }
+    } catch (error) {
+      console.error('❌ Manual race creation failed:', error);
+    }
+  };
+
   // Initialize finish line detector
   useEffect(() => {
     console.log('🏁 Initializing 3D finish line detector...');
@@ -253,7 +273,7 @@ export default function RaceController({
   };
 
   return (
-    <div className="w-full h-full min-h-[200px] relative overflow-hidden">
+    <div className="bg-white p-4 rounded-lg shadow-lg">
       {/* Glassmorphism container */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl">
         {/* Animated gradient overlay - red tint when waiting */}
@@ -342,6 +362,21 @@ export default function RaceController({
           </div>
         </div>
       </div>
+
+      {/* Add manual trigger button for testing */}
+      {raceState === 'finished' && (
+        <div className="mt-4 p-2 bg-yellow-100 rounded">
+          <p className="text-sm text-yellow-800 mb-2">
+            Race finished - waiting for automatic new race creation...
+          </p>
+          <button
+            onClick={handleManualNewRace}
+            className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+          >
+            🔧 Force New Race (Test)
+          </button>
+        </div>
+      )}
     </div>
   );
 }
