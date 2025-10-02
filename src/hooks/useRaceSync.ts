@@ -168,6 +168,7 @@ export function useRaceSync() {
     }
 
     console.log('🏇 Starting independent smooth movement system...');
+    console.log(`🏇 Initial horse count: ${smoothHorses.length}`);
     let lastUpdateTime = Date.now();
 
     const smoothMovementUpdate = () => {
@@ -181,7 +182,7 @@ export function useRaceSync() {
         if (prevHorses.length === 0) return prevHorses;
         
         let hasChanges = false;
-        const updatedHorses = prevHorses.map(horse => {
+        const updatedHorses = prevHorses.map((horse, index) => {
           // Calculate realistic horse speed if not set - ENSURE ALL HORSES GET VELOCITY
           let velocity = horse.velocity;
           if (!velocity || velocity <= 0) {
@@ -190,16 +191,19 @@ export function useRaceSync() {
             // Use horse ID for consistent speed variation - FALLBACK to index if no ID
             let seedValue;
             if (horse.id) {
-              seedValue = parseInt(horse.id.slice(-4), 16) / 65536;
+              try {
+                seedValue = parseInt(horse.id.slice(-4), 16) / 65536;
+              } catch {
+                seedValue = (index + 1) * 0.1; // Fallback if ID parsing fails
+              }
             } else {
               // Fallback: use array index for consistent speed
-              const horseIndex = prevHorses.findIndex(h => h === horse);
-              seedValue = (horseIndex + 1) * 0.1; // 0.1, 0.2, 0.3, etc.
+              seedValue = (index + 1) * 0.1; // 0.1, 0.2, 0.3, etc.
             }
             const speedVariation = 0.85 + (seedValue * 0.3);
             velocity = realisticSpeed * speedVariation;
             
-            console.log(`🏇 Horse ${horse.name || horse.id || 'Unknown'} velocity: ${velocity.toFixed(2)} m/s`);
+            console.log(`🏇 Horse ${horse.name || horse.id || `Horse ${index + 1}`} velocity: ${velocity.toFixed(2)} m/s (index: ${index})`);
           }
           
           const currentPosition = horse.position || 0;
@@ -265,7 +269,11 @@ export function useRaceSync() {
         // Use horse ID for consistent speed variation - FALLBACK to index
         let seedValue;
         if (horse.id) {
-          seedValue = parseInt(horse.id.slice(-4), 16) / 65536;
+          try {
+            seedValue = parseInt(horse.id.slice(-4), 16) / 65536;
+          } catch {
+            seedValue = (index + 1) * 0.1; // Fallback if ID parsing fails
+          }
         } else {
           // Fallback: use array index for consistent speed
           seedValue = (index + 1) * 0.1; // 0.1, 0.2, 0.3, etc.
@@ -273,7 +281,7 @@ export function useRaceSync() {
         const speedVariation = 0.85 + (seedValue * 0.3);
         const velocity = realisticSpeed * speedVariation;
         
-        console.log(`🏇 Initializing horse ${horse.name || horse.id || `Horse ${index + 1}`} with velocity: ${velocity.toFixed(2)} m/s`);
+        console.log(`🏇 Initializing horse ${horse.name || horse.id || `Horse ${index + 1}`} with velocity: ${velocity.toFixed(2)} m/s (index: ${index})`);
         
         return {
           ...horse,
