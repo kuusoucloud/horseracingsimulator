@@ -187,15 +187,22 @@ export function useRaceSync() {
           // Calculate realistic horse speed if not set - ENSURE ALL HORSES GET VELOCITY
           let velocity = horse.velocity;
           if (!velocity || velocity <= 0 || isNaN(velocity)) {
+            // Base speed from horse stats (speed + acceleration)
             const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
-            const realisticSpeed = 18.0 + (baseSpeed * 7.0);
             
-            // FIXED: Use simple index-based seed to avoid NaN issues
-            const seedValue = (index + 1) * 0.123; // Simple deterministic seed
-            const speedVariation = 0.85 + (seedValue % 1) * 0.3; // Ensure 0-1 range
+            // ELO-based performance modifier - higher ELO = better performance
+            const horseElo = horse.elo || 500;
+            const eloModifier = Math.max(0.7, Math.min(1.4, (horseElo / 500))); // 0.7x to 1.4x multiplier
+            
+            // Calculate realistic speed with ELO influence
+            const realisticSpeed = 18.0 + (baseSpeed * 7.0 * eloModifier);
+            
+            // Add some randomness for race excitement (but less than before)
+            const seedValue = (index + 1) * 0.123;
+            const speedVariation = 0.95 + (seedValue % 1) * 0.1; // Reduced variation (5% instead of 30%)
             velocity = realisticSpeed * speedVariation;
             
-            console.log(`🏇 Horse ${horse.name || horse.id || `Horse ${index + 1}`} velocity: ${velocity.toFixed(2)} m/s (index: ${index}, baseSpeed: ${baseSpeed.toFixed(2)}, seedValue: ${seedValue.toFixed(3)})`);
+            console.log(`🏇 Horse ${horse.name || horse.id || `Horse ${index + 1}`} velocity: ${velocity.toFixed(2)} m/s (ELO: ${horseElo}, modifier: ${eloModifier.toFixed(2)}x, baseSpeed: ${baseSpeed.toFixed(2)})`);
           }
           
           const currentPosition = horse.position || 0;
@@ -261,15 +268,22 @@ export function useRaceSync() {
       console.log('🏇 Initializing smooth horses for racing');
       
       const initialHorses = raceData.horses.map((horse: any, index: number) => {
+        // Base speed from horse stats (speed + acceleration)
         const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
-        const realisticSpeed = 18.0 + (baseSpeed * 7.0);
         
-        // FIXED: Use simple index-based seed to avoid NaN issues
-        const seedValue = (index + 1) * 0.123; // Simple deterministic seed
-        const speedVariation = 0.85 + (seedValue % 1) * 0.3; // Ensure 0-1 range
+        // ELO-based performance modifier - higher ELO = better performance
+        const horseElo = horse.elo || 500;
+        const eloModifier = Math.max(0.7, Math.min(1.4, (horseElo / 500))); // 0.7x to 1.4x multiplier
+        
+        // Calculate realistic speed with ELO influence
+        const realisticSpeed = 18.0 + (baseSpeed * 7.0 * eloModifier);
+        
+        // Add some randomness for race excitement (but less than before)
+        const seedValue = (index + 1) * 0.123;
+        const speedVariation = 0.95 + (seedValue % 1) * 0.1; // Reduced variation (5% instead of 30%)
         const velocity = realisticSpeed * speedVariation;
         
-        console.log(`🏇 Initializing horse ${horse.name || horse.id || `Horse ${index + 1}`} with velocity: ${velocity.toFixed(2)} m/s (index: ${index})`);
+        console.log(`🏇 Initializing horse ${horse.name || horse.id || `Horse ${index + 1}`} with velocity: ${velocity.toFixed(2)} m/s (ELO: ${horseElo}, modifier: ${eloModifier.toFixed(2)}x)`);
         
         return {
           ...horse,
