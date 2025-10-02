@@ -13,7 +13,19 @@ import EloLeaderboard from '@/components/EloLeaderboard';
 import PhotoFinish from '@/components/PhotoFinish';
 
 export default function Home() {
-  const { syncedData, isConnected } = useRaceSync();
+  // Use the optimized race sync hook with smooth horses
+  const { 
+    syncedData, 
+    isConnected, 
+    getCurrentHorses,  // This returns smooth horses during racing!
+    getRaceState,
+    getTimer,
+    getRaceResults,
+    getWeatherConditions,
+    shouldShowPhotoFinish,
+    shouldShowResults,
+    getPhotoFinishResults
+  } = useRaceSync();
   
   // Client-side hydration state
   const [isClient, setIsClient] = useState(false);
@@ -29,19 +41,22 @@ export default function Home() {
   const [showPhotoFinish, setShowPhotoFinish] = useState(false);
   const [photoFinishResults, setPhotoFinishResults] = useState<RaceResult[] | null>(null);
 
-  // Get data from server - with safe defaults
-  const horses = syncedData?.horses || [];
-  const raceState = syncedData?.race_state || 'pre-race';
-  const preRaceTimer = syncedData?.pre_race_timer || 10;
-  const countdownTimer = syncedData?.countdown_timer || 0;
-  const raceTimer = syncedData?.race_timer || 0;
-  const raceResults = syncedData?.race_results || [];
+  // Get optimized data from race sync hook
+  const horses = getCurrentHorses(); // This returns smooth horses during racing!
+  const raceState = getRaceState();
+  const raceResults = getRaceResults();
+  const serverWeatherConditions = getWeatherConditions();
+  
+  // Get timer based on race state
+  const timer = getTimer();
+  const preRaceTimer = raceState === 'pre-race' ? timer : 10;
+  const countdownTimer = raceState === 'countdown' ? timer : 0;
+  const raceTimer = raceState === 'racing' ? timer : 0;
   
   // Server-managed UI states
-  const showPhotoFinishFromServer = syncedData?.show_photo_finish || false;
-  const showResultsFromServer = syncedData?.show_results || false;
-  const photoFinishResultsFromServer = syncedData?.photo_finish_results || [];
-  const serverWeatherConditions = syncedData?.weather_conditions || null;
+  const showPhotoFinishFromServer = shouldShowPhotoFinish();
+  const showResultsFromServer = shouldShowResults();
+  const photoFinishResultsFromServer = getPhotoFinishResults();
 
   // Fetch horse ELO data from database and merge with race data
   const [horseEloData, setHorseEloData] = useState<Record<string, any>>({});
@@ -102,11 +117,11 @@ export default function Home() {
     }
   }, [serverWeatherConditions]);
 
-  // Convert horses array to display format (horses have position data during race)
+  // Convert horses array to display format - horses already have smooth positions!
   const displayProgress = horsesWithElo.map(horse => ({
     id: horse.id,
     name: horse.name,
-    position: horse.position || 0, // Use position directly from horse object
+    position: horse.position || 0, // This is now smooth position during racing!
     speed: 0, // Speed calculation can be added later if needed
     horse: horse
   }));
@@ -114,14 +129,15 @@ export default function Home() {
   // Debug race progress data
   useEffect(() => {
     if (horsesWithElo.length > 0 && raceState === 'racing') {
-      console.log('🏇 Horse Position Data:', {
+      console.log('🏇 Smooth Horse Position Data:', {
         raceState,
         raceTimer,
         sampleHorses: horsesWithElo.slice(0, 3).map(h => ({
           id: h.id,
           name: h.name,
           position: h.position || 0,
-          elo: h.elo
+          elo: h.elo,
+          isSmooth: h.clientPosition !== undefined // Check if this is a smooth horse
         }))
       });
     }
