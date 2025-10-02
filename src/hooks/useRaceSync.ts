@@ -307,7 +307,7 @@ export function useRaceSync() {
               ...smoothHorse,
               ...serverHorse, // Update horse data (name, stats, etc.)
               serverPosition: serverPos,
-              velocity: serverHorse.velocity || smoothHorse.velocity,
+              velocity: (serverHorse as any).velocity || smoothHorse.velocity,
               lastServerUpdate: now,
               position: newClientPosition,
               clientPosition: newClientPosition,
@@ -319,7 +319,7 @@ export function useRaceSync() {
               ...smoothHorse,
               ...serverHorse, // Update horse data but keep positions
               serverPosition: smoothHorse.serverPosition,
-              velocity: serverHorse.velocity || smoothHorse.velocity,
+              velocity: (serverHorse as any).velocity || smoothHorse.velocity,
               position: smoothHorse.position,
               clientPosition: smoothHorse.clientPosition,
               predictedPosition: smoothHorse.predictedPosition
