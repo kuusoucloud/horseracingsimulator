@@ -70,6 +70,7 @@ export type Database = {
       }
       race_state: {
         Row: {
+          countdown_start_time: string | null
           countdown_timer: number | null
           created_at: string | null
           finish_timer: number | null
@@ -90,6 +91,7 @@ export type Database = {
           weather_conditions: Json | null
         }
         Insert: {
+          countdown_start_time?: string | null
           countdown_timer?: number | null
           created_at?: string | null
           finish_timer?: number | null
@@ -110,6 +112,7 @@ export type Database = {
           weather_conditions?: Json | null
         }
         Update: {
+          countdown_start_time?: string | null
           countdown_timer?: number | null
           created_at?: string | null
           finish_timer?: number | null
