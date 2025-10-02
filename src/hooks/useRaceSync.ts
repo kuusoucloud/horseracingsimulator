@@ -56,7 +56,7 @@ export function useRaceSync() {
     }
   }, [isWaitingForNewRace]);
 
-  // Initialize and load current race state
+  // Initialize and load current race state - CLIENT IS READ-ONLY
   useEffect(() => {
     if (!supabase) {
       console.log('🏇 No Supabase connection - running offline');
@@ -67,7 +67,7 @@ export function useRaceSync() {
 
     const initializeRaceSystem = async () => {
       try {
-        console.log('🏇 Loading current race state...');
+        console.log('🏇 Loading current race state (READ-ONLY CLIENT)...');
 
         // Load current race state
         if (supabase) {
@@ -113,7 +113,7 @@ export function useRaceSync() {
             }
             lastServerUpdate.current = Date.now();
           } else {
-            console.log('🏇 No race found, server will create one automatically');
+            console.log('🏇 No race found - server should create one automatically');
             setIsWaitingForNewRace(false);
           }
         }
@@ -135,7 +135,7 @@ export function useRaceSync() {
   useEffect(() => {
     if (!supabase || !isConnected) return;
 
-    console.log('📡 Setting up real-time subscription (READ-ONLY)...');
+    console.log('📡 Setting up real-time subscription (READ-ONLY CLIENT)...');
     
     subscription.current = supabase
       .channel('race_updates')
@@ -207,7 +207,7 @@ export function useRaceSync() {
     };
   }, [isConnected]);
 
-  // INDEPENDENT CLIENT-SIDE SMOOTH MOVEMENT - No server interference during racing
+  // CLIENT-SIDE SMOOTH MOVEMENT - No server interference during racing
   useEffect(() => {
     if (!raceData || raceData.race_state !== 'racing') {
       // Cancel any running animation
@@ -217,56 +217,32 @@ export function useRaceSync() {
       return;
     }
 
-    console.log('🏇 Starting independent smooth movement system...');
-    console.log(`🏇 Initial horse count: ${smoothHorses.length}`);
-    console.log('🏇 Horse details:', smoothHorses.map(h => ({ name: h.name, id: h.id, velocity: h.velocity })));
+    console.log('🏇 Starting client-side smooth movement...');
     let lastUpdateTime = Date.now();
 
     const smoothMovementUpdate = () => {
       const now = Date.now();
-      const deltaTime = (now - lastUpdateTime) / 1000; // Convert to seconds
-      
-      // Update at 60fps for ultra-smooth movement
+      const deltaTime = (now - lastUpdateTime) / 1000;
       lastUpdateTime = now;
 
       setSmoothHorses(prevHorses => {
         if (prevHorses.length === 0) return prevHorses;
         
-        let hasChanges = false;
         const updatedHorses = prevHorses.map((horse, index) => {
-          // Calculate realistic horse speed if not set - ENSURE ALL HORSES GET VELOCITY
           let velocity = horse.velocity;
-          if (!velocity || velocity <= 0 || isNaN(velocity)) {
-            // Base speed from horse stats (speed + acceleration)
+          if (!velocity || velocity <= 0) {
             const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
-            
-            // ELO-based performance modifier - higher ELO = better performance
             const horseElo = horse.elo || 500;
-            const eloModifier = Math.max(0.7, Math.min(1.4, (horseElo / 500))); // 0.7x to 1.4x multiplier
-            
-            // Calculate realistic speed with ELO influence
+            const eloModifier = Math.max(0.7, Math.min(1.4, (horseElo / 500)));
             const realisticSpeed = 18.0 + (baseSpeed * 7.0 * eloModifier);
-            
-            // Add some randomness for race excitement (but less than before)
             const seedValue = (index + 1) * 0.123;
-            const speedVariation = 0.95 + (seedValue % 1) * 0.1; // Reduced variation (5% instead of 30%)
+            const speedVariation = 0.95 + (seedValue % 1) * 0.1;
             velocity = realisticSpeed * speedVariation;
-            
-            console.log(`🏇 Horse ${horse.name || horse.id || `Horse ${index + 1}`} velocity: ${velocity.toFixed(2)} m/s (ELO: ${horseElo}, modifier: ${eloModifier.toFixed(2)}x, baseSpeed: ${baseSpeed.toFixed(2)})`);
           }
           
           const currentPosition = horse.position || 0;
-          
-          // Calculate new position based on velocity and time
           const newPosition = Math.min(1200, currentPosition + (velocity * deltaTime));
           
-          // Log position updates for debugging
-          if (index < 3) { // Only log first 3 horses to avoid spam
-            console.log(`🏇 Horse ${index + 1} (${horse.name}): ${currentPosition.toFixed(1)}m → ${newPosition.toFixed(1)}m (velocity: ${velocity.toFixed(2)} m/s)`);
-          }
-          
-          // ALWAYS update position and velocity to ensure movement
-          hasChanges = true;
           return {
             ...horse,
             position: newPosition,
@@ -275,15 +251,12 @@ export function useRaceSync() {
           };
         });
         
-        // Only return new array if there are actual changes
-        return hasChanges ? updatedHorses : prevHorses;
+        return updatedHorses;
       });
       
-      // Continue the update loop
       animationFrameRef.current = requestAnimationFrame(smoothMovementUpdate);
     };
 
-    // Start the smooth movement loop
     smoothMovementUpdate();
 
     return () => {
@@ -293,16 +266,13 @@ export function useRaceSync() {
     };
   }, [raceData?.race_state]);
 
-  // SIMPLIFIED server sync - only sync when race state changes, not during racing
+  // Initialize smooth horses when race starts
   useEffect(() => {
     if (!raceData) return;
 
     const now = Date.now();
     
-    // Only sync server data when NOT racing (to avoid interfering with smooth movement)
     if (raceData.race_state !== 'racing' && raceData.horses) {
-      console.log('🏇 Syncing server positions (non-racing state)');
-      
       const staticHorses = raceData.horses.map((horse: any) => ({
         ...horse,
         serverPosition: horse.position || 0,
@@ -314,26 +284,14 @@ export function useRaceSync() {
       }));
       setSmoothHorses(staticHorses);
     } else if (raceData.race_state === 'racing' && smoothHorses.length === 0) {
-      // Initialize smooth horses only once when race starts
-      console.log('🏇 Initializing smooth horses for racing');
-      
       const initialHorses = raceData.horses.map((horse: any, index: number) => {
-        // Base speed from horse stats (speed + acceleration)
         const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
-        
-        // ELO-based performance modifier - higher ELO = better performance
         const horseElo = horse.elo || 500;
-        const eloModifier = Math.max(0.7, Math.min(1.4, (horseElo / 500))); // 0.7x to 1.4x multiplier
-        
-        // Calculate realistic speed with ELO influence
+        const eloModifier = Math.max(0.7, Math.min(1.4, (horseElo / 500)));
         const realisticSpeed = 18.0 + (baseSpeed * 7.0 * eloModifier);
-        
-        // Add some randomness for race excitement (but less than before)
         const seedValue = (index + 1) * 0.123;
-        const speedVariation = 0.95 + (seedValue % 1) * 0.1; // Reduced variation (5% instead of 30%)
+        const speedVariation = 0.95 + (seedValue % 1) * 0.1;
         const velocity = realisticSpeed * speedVariation;
-        
-        console.log(`🏇 Initializing horse ${horse.name || horse.id || `Horse ${index + 1}`} with velocity: ${velocity.toFixed(2)} m/s (ELO: ${horseElo}, modifier: ${eloModifier.toFixed(2)}x)`);
         
         return {
           ...horse,
@@ -349,13 +307,11 @@ export function useRaceSync() {
     }
   }, [raceData?.race_state, raceData?.horses, smoothHorses.length]);
 
-  // OPTIMIZED helper functions for components
+  // Helper functions
   const getCurrentHorses = useCallback(() => {
-    // Return smooth horses during racing, regular horses otherwise
     if (raceData?.race_state === 'racing' && smoothHorses.length > 0) {
       return smoothHorses;
     }
-    
     return raceData?.horses || [];
   }, [smoothHorses, raceData]);
 
@@ -382,22 +338,17 @@ export function useRaceSync() {
     return raceData?.race_results || [];
   }, [raceData?.race_results]);
 
-  // STABLE weather conditions - prevent flickering with better caching
   const weatherConditionsRef = useRef<any>(null);
   const lastWeatherHashRef = useRef<string>('');
   
   const getWeatherConditions = useCallback(() => {
     const serverWeather = raceData?.weather_conditions;
-    
-    // Create a hash of the server weather to detect actual changes
     const weatherHash = JSON.stringify(serverWeather);
     
-    // If weather hasn't actually changed, return cached version
     if (weatherHash === lastWeatherHashRef.current && weatherConditionsRef.current) {
       return weatherConditionsRef.current;
     }
     
-    // If no server weather data, return cached or default
     if (!serverWeather) {
       if (weatherConditionsRef.current) {
         return weatherConditionsRef.current;
@@ -417,11 +368,9 @@ export function useRaceSync() {
       return defaultWeather;
     }
     
-    // Handle different weather formats from server
     if (typeof serverWeather === 'object') {
       let processedWeather;
       
-      // Check if it's the new server format
       if ('condition' in serverWeather && 'humidity' in serverWeather) {
         const condition = serverWeather.condition as string;
         const isRainy = condition === 'rainy' || condition === 'rain';
@@ -438,22 +387,17 @@ export function useRaceSync() {
           trackColor: isRainy ? "#5d4e37" : "#8B4513",
           grassColor: isRainy ? "#2d5a2d" : (isTwilight ? "#228b22" : "#32cd32"),
         };
-      }
-      // Check if it's already in the correct client format
-      else if ('timeOfDay' in serverWeather && 'weather' in serverWeather) {
+      } else if ('timeOfDay' in serverWeather && 'weather' in serverWeather) {
         processedWeather = serverWeather as any;
       }
       
-      // Only update cache if weather actually changed
       if (processedWeather) {
-        console.log('🌤️ Weather conditions updated:', processedWeather);
         weatherConditionsRef.current = processedWeather;
         lastWeatherHashRef.current = weatherHash;
         return processedWeather;
       }
     }
     
-    // Return cached weather if available
     return weatherConditionsRef.current || {
       timeOfDay: "day" as const,
       weather: "clear" as const,
@@ -477,7 +421,6 @@ export function useRaceSync() {
     return raceData?.photo_finish_results || [];
   }, [raceData?.photo_finish_results]);
 
-  // Manual unlock function for stuck clients
   const forceUnlockWaiting = useCallback(() => {
     console.log('🔓 Manually unlocking waiting client');
     setIsWaitingForNewRace(false);
@@ -501,7 +444,7 @@ export function useRaceSync() {
     shouldShowPhotoFinish,
     shouldShowResults,
     getPhotoFinishResults,
-    forceUnlockWaiting, // New function to manually unlock stuck clients
+    forceUnlockWaiting,
     
     // Legacy compatibility (for existing components)
     syncedData: raceData,
