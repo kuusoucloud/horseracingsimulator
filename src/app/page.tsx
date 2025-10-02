@@ -141,25 +141,34 @@ export default function Home() {
     
     // Update results state
     if (showResultsFromServer && raceResults.length > 0) {
-      console.log('🏆 Server says show results');
+      console.log('🏆 Server says show results - FORCING display');
       setShowResults(true);
       setShowPhotoFinish(false);
       setEloRefreshTrigger(prev => prev + 1);
-    } else if (!showPhotoFinishFromServer) {
-      setShowResults(false);
-    }
-  }, [showPhotoFinishFromServer, showResultsFromServer, photoFinishResultsFromServer, raceResults.length]);
-
-  // Show results when race finishes
-  useEffect(() => {
-    if (raceState === 'finished' && raceResults.length > 0) {
-      console.log('🏆 Race finished, showing results');
+    } else if (raceState === 'finished' && raceResults.length > 0) {
+      console.log('🏆 Race finished, showing results as fallback');
       setShowResults(true);
       setEloRefreshTrigger(prev => prev + 1);
-    } else {
+    } else if (raceState !== 'finished') {
       setShowResults(false);
     }
-  }, [raceState, raceResults.length]);
+  }, [showPhotoFinishFromServer, showResultsFromServer, raceResults.length]);
+
+  // Show results when race finishes - ALWAYS show if server says to
+  useEffect(() => {
+    if (showResultsFromServer && raceResults.length > 0) {
+      console.log('🏆 Server says show results - FORCING display');
+      setShowResults(true);
+      setShowPhotoFinish(false);
+      setEloRefreshTrigger(prev => prev + 1);
+    } else if (raceState === 'finished' && raceResults.length > 0) {
+      console.log('🏆 Race finished, showing results as fallback');
+      setShowResults(true);
+      setEloRefreshTrigger(prev => prev + 1);
+    } else if (raceState !== 'finished') {
+      setShowResults(false);
+    }
+  }, [showResultsFromServer, raceState, raceResults.length]);
 
   // Dummy handlers for components that expect them (but won't be used)
   const handleRaceProgress = useCallback(() => {

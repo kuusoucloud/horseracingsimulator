@@ -194,13 +194,13 @@ export function useRaceSync() {
           let clientPosition;
           let predictedPosition;
           
-          if (existingHorse && timeSinceLastUpdate < 300) { // 300ms max prediction for smoother movement
-            // Gentle client-side prediction for realistic speeds
+          if (existingHorse && timeSinceLastUpdate < 500) { // 500ms max prediction for faster updates
+            // Aggressive client-side prediction for fast racing
             const deltaTime = timeSinceLastUpdate / 1000; // Convert to seconds
             predictedPosition = existingHorse.clientPosition + (velocity * deltaTime);
             
-            // Gentle correction towards server position (realistic movement)
-            const correctionStrength = Math.min(timeSinceLastUpdate / 200, 0.4); // Max 40% correction, smoother blending
+            // Faster correction towards server position (more responsive)
+            const correctionStrength = Math.min(timeSinceLastUpdate / 100, 0.8); // Max 80% correction, faster blending
             clientPosition = predictedPosition * (1 - correctionStrength) + horse.position * correctionStrength;
           } else {
             // First update or too much lag - snap to server position
@@ -251,11 +251,11 @@ export function useRaceSync() {
     };
   }, [raceData, lastServerUpdate.current]);
 
-  // High-frequency server timer (20fps = 50ms for ultra-smooth multiplayer experience)
+  // High-frequency server timer (30fps = 33ms for ultra-smooth racing)
   useEffect(() => {
     if (!supabase || !isConnected) return;
 
-    console.log('⚡ Starting ultra-high-frequency race timer (20fps)...');
+    console.log('⚡ Starting ultra-high-frequency race timer (30fps)...');
     
     timerInterval.current = setInterval(async () => {
       try {
@@ -270,7 +270,7 @@ export function useRaceSync() {
       } catch (error) {
         console.error('❌ Timer error:', error);
       }
-    }, 50); // 50ms = 20fps server updates (ultra-smooth multiplayer)
+    }, 33); // 33ms = 30fps server updates (ultra-smooth racing)
 
     return () => {
       if (timerInterval.current) {
