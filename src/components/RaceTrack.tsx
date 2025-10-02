@@ -1392,7 +1392,7 @@ export default function RaceTrack({
         </div>
       </div>
 
-      <Canvas shadows camera={{ near: 0.5, far: 2000, fov: 50 }}>
+      <Canvas shadows camera={{ near: 0.1, far: 1000, fov: 60 }}>
         {/* Custom camera that follows leading horse using actual 3D positions */}
         <FollowCamera
           progress={displayProgress}
@@ -1400,15 +1400,15 @@ export default function RaceTrack({
           raceState={raceState}
         />
 
-        {/* Dynamic Lighting based on time of day */}
-        <ambientLight intensity={weatherConditions.ambientIntensity} />
+        {/* Dynamic Lighting based on time of day - ENHANCED for better visibility */}
+        <ambientLight intensity={Math.max(weatherConditions.ambientIntensity, 0.6)} />
         <directionalLight
           position={
             weatherConditions.timeOfDay === "night"
               ? [30, 30, 30]
               : [50, 50, 50]
           }
-          intensity={weatherConditions.directionalIntensity}
+          intensity={Math.max(weatherConditions.directionalIntensity, 1.2)}
           color={
             weatherConditions.timeOfDay === "night" ? "#ffa500" : "#ffffff"
           }
@@ -1856,7 +1856,7 @@ export default function RaceTrack({
         </mesh>
 
         {/* Enhanced Atmospheric Effects */}
-        {/* Fog for depth and atmosphere */}
+        {/* Fog for depth and atmosphere - REDUCED fog for better visibility */}
         <fog
           attach="fog"
           args={[
@@ -1865,8 +1865,8 @@ export default function RaceTrack({
               : weatherConditions.weather === "rain"
                 ? "#6b7280"
                 : "#87ceeb",
-            50,
-            weatherConditions.weather === "rain" ? 120 : 150,
+            150, // Increased near distance for less fog
+            weatherConditions.weather === "rain" ? 300 : 400, // Increased far distance for less fog
           ]}
         />
 
