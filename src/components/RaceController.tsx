@@ -193,7 +193,7 @@ export default function RaceController({
 
   // Sync with server timer when it changes
   useEffect(() => {
-    if (preRaceTimer !== lastServerTimer.current) {
+    if (preRaceTimer !== undefined && preRaceTimer !== lastServerTimer.current) {
       console.log(`⏰ Server timer update: ${preRaceTimer}`);
       setClientTimer(preRaceTimer);
       lastServerTimer.current = preRaceTimer;
@@ -201,7 +201,7 @@ export default function RaceController({
   }, [preRaceTimer]);
 
   useEffect(() => {
-    if (countdownTimer !== lastServerCountdown.current) {
+    if (countdownTimer !== undefined && countdownTimer !== lastServerCountdown.current) {
       console.log(`⏰ Server countdown update: ${countdownTimer}`);
       setClientCountdown(countdownTimer);
       lastServerCountdown.current = countdownTimer;
