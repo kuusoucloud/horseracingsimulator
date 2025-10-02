@@ -139,6 +139,8 @@ export function useRaceSync() {
     console.log('🤖 Starting race automation trigger...');
     
     const triggerRaceAutomation = async () => {
+      if (!supabase) return; // Add null check here
+      
       try {
         // Call the race automation edge function
         const { data, error } = await supabase.functions.invoke('race-automation', {
