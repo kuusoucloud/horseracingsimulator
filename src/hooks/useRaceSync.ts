@@ -155,12 +155,12 @@ export function useRaceSync() {
             
             // HANDLE MID-RACE CONNECTION: Only allow updates if not waiting or if race is starting fresh
             if (isWaitingForNewRace) {
-              if (raceDataFromDB.race_state === 'pre-race') {
+              if (raceDataFromDB.race_state === 'pre-race' || raceDataFromDB.race_state === 'finished') {
                 console.log('✅ New race started - client can now participate');
                 setIsWaitingForNewRace(false);
                 setRaceData(raceDataFromDB);
               } else {
-                console.log('🚫 Still waiting for new race - ignoring mid-race update');
+                console.log(`🚫 Still waiting for new race - current state: ${raceDataFromDB.race_state}`);
                 return; // Ignore updates while waiting
               }
             } else {
