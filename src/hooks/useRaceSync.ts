@@ -33,6 +33,7 @@ export function useRaceSync() {
   const [raceData, setRaceData] = useState<RaceData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isWaitingForNewRace, setIsWaitingForNewRace] = useState(false);
   
   // Multiplayer-style smooth horses with client prediction
   const [smoothHorses, setSmoothHorses] = useState<SmoothHorse[]>([]);
@@ -68,27 +69,37 @@ export function useRaceSync() {
             console.error('❌ Error loading race:', error);
           } else if (currentRace) {
             console.log('🏇 Loaded race:', currentRace.race_state);
-            // Type-safe conversion from database row to RaceData
-            const raceDataFromDB: RaceData = {
-              id: currentRace.id,
-              race_state: currentRace.race_state as RaceState,
-              horses: (currentRace.horses as any) || [],
-              race_progress: (currentRace.race_progress as any) || {},
-              pre_race_timer: currentRace.pre_race_timer || 0,
-              countdown_timer: currentRace.countdown_timer || undefined,
-              race_timer: currentRace.race_timer || undefined,
-              race_start_time: currentRace.race_start_time || undefined,
-              race_results: (currentRace.race_results as any) || [],
-              show_photo_finish: currentRace.show_photo_finish || false,
-              show_results: currentRace.show_results || false,
-              photo_finish_results: (currentRace.photo_finish_results as any) || [],
-              weather_conditions: (currentRace.weather_conditions as any) || undefined,
-              timer_owner: currentRace.timer_owner || undefined,
-            };
-            setRaceData(raceDataFromDB);
+            
+            // CHECK: If connecting mid-race, block the client and wait for new race
+            if (currentRace.race_state === 'racing' || currentRace.race_state === 'countdown') {
+              console.log('🚫 Client connected mid-race - waiting for next race to start');
+              setIsWaitingForNewRace(true);
+              setRaceData(null); // Don't show the current race
+            } else {
+              // Type-safe conversion from database row to RaceData
+              const raceDataFromDB: RaceData = {
+                id: currentRace.id,
+                race_state: currentRace.race_state as RaceState,
+                horses: (currentRace.horses as any) || [],
+                race_progress: (currentRace.race_progress as any) || {},
+                pre_race_timer: currentRace.pre_race_timer || 0,
+                countdown_timer: currentRace.countdown_timer || undefined,
+                race_timer: currentRace.race_timer || undefined,
+                race_start_time: currentRace.race_start_time || undefined,
+                race_results: (currentRace.race_results as any) || [],
+                show_photo_finish: currentRace.show_photo_finish || false,
+                show_results: currentRace.show_results || false,
+                photo_finish_results: (currentRace.photo_finish_results as any) || [],
+                weather_conditions: (currentRace.weather_conditions as any) || undefined,
+                timer_owner: currentRace.timer_owner || undefined,
+              };
+              setRaceData(raceDataFromDB);
+              setIsWaitingForNewRace(false);
+            }
             lastServerUpdate.current = Date.now();
           } else {
             console.log('🏇 No race found, database will create one on first tick');
+            setIsWaitingForNewRace(false);
           }
         }
 
@@ -141,7 +152,21 @@ export function useRaceSync() {
               weather_conditions: dbRow.weather_conditions || undefined,
               timer_owner: dbRow.timer_owner || undefined,
             };
-            setRaceData(raceDataFromDB);
+            
+            // HANDLE MID-RACE CONNECTION: Only allow updates if not waiting or if race is starting fresh
+            if (isWaitingForNewRace) {
+              if (raceDataFromDB.race_state === 'pre-race') {
+                console.log('✅ New race started - client can now participate');
+                setIsWaitingForNewRace(false);
+                setRaceData(raceDataFromDB);
+              } else {
+                console.log('🚫 Still waiting for new race - ignoring mid-race update');
+                return; // Ignore updates while waiting
+              }
+            } else {
+              setRaceData(raceDataFromDB);
+            }
+            
             lastServerUpdate.current = Date.now();
           }
         }
@@ -420,6 +445,7 @@ export function useRaceSync() {
     raceData,
     isConnected,
     isLoading,
+    isWaitingForNewRace,
     
     // Helper functions
     getCurrentHorses,

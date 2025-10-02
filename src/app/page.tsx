@@ -15,9 +15,11 @@ import PhotoFinish from '@/components/PhotoFinish';
 export default function Home() {
   // Use the optimized race sync hook with smooth horses
   const { 
-    syncedData, 
-    isConnected, 
-    getCurrentHorses,  // This returns smooth horses during racing!
+    raceData,
+    isConnected,
+    isLoading,
+    isWaitingForNewRace, // NEW: Check if waiting for next race
+    getCurrentHorses,
     getRaceState,
     getTimer,
     getRaceResults,
@@ -235,6 +237,39 @@ export default function Home() {
       odds: horse.odds
     });
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-green-100 to-green-200 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <h2 className="text-2xl font-bold text-green-800">Loading Race System...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  // Show waiting message if client connected mid-race
+  if (isWaitingForNewRace) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-yellow-100 to-orange-200 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8 bg-white rounded-lg shadow-lg">
+          <div className="animate-pulse text-6xl mb-4">🏇</div>
+          <h2 className="text-3xl font-bold text-orange-800 mb-4">Race in Progress</h2>
+          <p className="text-lg text-orange-700 mb-6">
+            You've connected during an active race. Please wait for the current race to finish 
+            and a new race to begin.
+          </p>
+          <div className="flex items-center justify-center space-x-2 text-orange-600">
+            <div className="animate-bounce">⏳</div>
+            <span className="font-medium">Waiting for next race...</span>
+            <div className="animate-bounce" style={{ animationDelay: '0.1s' }}>⏳</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Don't render until client-side hydration is complete
   if (!isClient) {
