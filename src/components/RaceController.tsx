@@ -287,12 +287,6 @@ export default function RaceController({
               <div className="text-xs font-semibold text-white bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
                 Race Complete!
               </div>
-              <button
-                onClick={startNewRace}
-                className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-bold text-sm hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-lg"
-              >
-                🏇 Start New Race
-              </button>
             </div>
           )}
         </div>
