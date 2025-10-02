@@ -153,6 +153,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      bytea_to_text: {
+        Args: { data: string }
+        Returns: string
+      }
       calculate_elo_change: {
         Args: {
           current_elo: number
@@ -183,9 +187,72 @@ export type Database = {
         Args: { all_elos: number[]; horse_elo: number }
         Returns: number
       }
+      ensure_race_running: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       generate_race_horses: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      http: {
+        Args: { request: Database["public"]["CompositeTypes"]["http_request"] }
+        Returns: Database["public"]["CompositeTypes"]["http_response"]
+      }
+      http_delete: {
+        Args:
+          | { content: string; content_type: string; uri: string }
+          | { uri: string }
+        Returns: Database["public"]["CompositeTypes"]["http_response"]
+      }
+      http_get: {
+        Args: { data: Json; uri: string } | { uri: string }
+        Returns: Database["public"]["CompositeTypes"]["http_response"]
+      }
+      http_head: {
+        Args: { uri: string }
+        Returns: Database["public"]["CompositeTypes"]["http_response"]
+      }
+      http_header: {
+        Args: { field: string; value: string }
+        Returns: Database["public"]["CompositeTypes"]["http_header"]
+      }
+      http_list_curlopt: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          curlopt: string
+          value: string
+        }[]
+      }
+      http_patch: {
+        Args: { content: string; content_type: string; uri: string }
+        Returns: Database["public"]["CompositeTypes"]["http_response"]
+      }
+      http_post: {
+        Args:
+          | { content: string; content_type: string; uri: string }
+          | { data: Json; uri: string }
+        Returns: Database["public"]["CompositeTypes"]["http_response"]
+      }
+      http_put: {
+        Args: { content: string; content_type: string; uri: string }
+        Returns: Database["public"]["CompositeTypes"]["http_response"]
+      }
+      http_reset_curlopt: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      http_set_curlopt: {
+        Args: { curlopt: string; value: string }
+        Returns: boolean
+      }
+      invoke_high_frequency_tick: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      invoke_race_automation: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       manual_start_new_race: {
         Args: Record<PropertyKey, never>
@@ -194,6 +261,10 @@ export type Database = {
       start_new_race: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      text_to_bytea: {
+        Args: { data: string }
+        Returns: string
       }
       trigger_race_tick: {
         Args: Record<PropertyKey, never>
@@ -215,12 +286,32 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      urlencode: {
+        Args: { data: Json } | { string: string } | { string: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
     }
     CompositeTypes: {
-      [_ in never]: never
+      http_header: {
+        field: string | null
+        value: string | null
+      }
+      http_request: {
+        method: unknown | null
+        uri: string | null
+        headers: Database["public"]["CompositeTypes"]["http_header"][] | null
+        content_type: string | null
+        content: string | null
+      }
+      http_response: {
+        status: number | null
+        content_type: string | null
+        headers: Database["public"]["CompositeTypes"]["http_header"][] | null
+        content: string | null
+      }
     }
   }
 }

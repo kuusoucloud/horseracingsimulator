@@ -12,14 +12,28 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // This function is now disabled to prevent race conflicts
-    // Only update_race_tick() should handle race completion
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    console.log('🤖 Race automation tick started at', new Date().toISOString())
+
+    // Call the race tick function to handle all race states
+    const { error: tickError } = await supabase.rpc('update_race_tick')
+    
+    if (tickError) {
+      console.error('❌ Race tick error:', tickError)
+      throw tickError
+    }
+
+    console.log('✅ Race automation tick completed successfully')
     
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Race automation disabled - using update_race_tick() instead',
-        note: 'This function was causing premature race endings'
+        message: 'Race automation tick completed',
+        timestamp: new Date().toISOString()
       }),
       { 
         status: 200,
@@ -27,11 +41,15 @@ Deno.serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Race automation error:', error)
+    console.error('❌ Race automation error:', error)
     return new Response(
-      JSON.stringify({ error: 'Race automation disabled' }),
+      JSON.stringify({ 
+        error: 'Race automation failed',
+        details: error.message,
+        timestamp: new Date().toISOString()
+      }),
       { 
-        status: 200, // Return 200 to avoid errors
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
