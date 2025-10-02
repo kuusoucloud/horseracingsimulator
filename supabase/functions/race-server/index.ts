@@ -237,12 +237,12 @@ async function runRaceTick(supabase: any) {
     return;
   }
 
-  // Handle finished state - create new race after 5 seconds (reduced from 10)
+  // Handle finished state - create new race after 15 seconds
   if (currentRace.race_state === 'finished') {
     const finishAge = (now.getTime() - new Date(currentRace.race_end_time || currentRace.updated_at).getTime()) / 1000;
     
-    if (finishAge >= 5) {
-      console.log('🆕 Creating new race after finish...');
+    if (finishAge >= 15) {
+      console.log('🆕 Creating new race after 15 seconds...');
       await createNewRace(supabase);
     }
   }
