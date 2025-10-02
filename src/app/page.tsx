@@ -231,7 +231,7 @@ export default function Home() {
           <div className="lg:col-span-2">
             <HorseLineup 
               horses={horsesWithElo} 
-              onPlaceBet={handlePlaceBet}
+              onPlaceBet={handleBet}
               selectedBet={selectedBet}
               raceInProgress={raceState === 'racing'}
             />
