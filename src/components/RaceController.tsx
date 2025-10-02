@@ -239,24 +239,7 @@ export default function RaceController({
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-lg">
-      {/* Glassmorphism container */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl">
-        {/* Animated gradient overlay - red tint when waiting */}
-        <div className={`absolute inset-0 rounded-xl ${
-          isWaitingForNewRace 
-            ? "bg-gradient-to-br from-red-500/20 via-orange-500/10 to-yellow-500/10" 
-            : "bg-gradient-to-br from-amber-500/10 via-transparent to-green-500/10"
-        }`} />
-        
-        {/* Glow effects - red when waiting */}
-        <div className={`absolute -inset-1 rounded-xl blur-xl opacity-50 ${
-          isWaitingForNewRace
-            ? "bg-gradient-to-r from-red-500/30 via-orange-500/20 to-yellow-500/20"
-            : "bg-gradient-to-r from-amber-500/20 via-green-500/20 to-emerald-500/20"
-        }`} />
-      </div>
-      
-      <div className="relative z-10 p-4 h-full flex flex-col items-center justify-center space-y-4">
+      <div className="p-4 h-full flex flex-col items-center justify-center space-y-4">
         <div className="text-center">
           <div className={`px-4 py-3 rounded-lg font-bold text-sm transition-all duration-300 w-full ${
             isWaitingForNewRace
@@ -274,10 +257,10 @@ export default function RaceController({
               <div className="text-lg font-bold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent animate-pulse">
                 ⏳ Please Wait
               </div>
-              <div className="text-xs text-white/80 bg-red-500/20 px-3 py-2 rounded-lg border border-red-400/30">
+              <div className="text-xs text-gray-600 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
                 You connected during an active race. You'll be able to participate in the next race.
               </div>
-              <div className="text-xs text-white/60">
+              <div className="text-xs text-gray-500">
                 Races run continuously - the next one will start soon!
               </div>
             </div>
@@ -296,7 +279,7 @@ export default function RaceController({
           
           {raceState === "racing" && !isWaitingForNewRace && (
             <div className="mt-3">
-              <div className="text-xs font-semibold text-white bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
+              <div className="text-xs font-semibold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
                 Race Time: {raceTimer}s
               </div>
             </div>
@@ -304,7 +287,7 @@ export default function RaceController({
 
           {raceState === "finished" && !isWaitingForNewRace && (
             <div className="mt-3 space-y-2">
-              <div className="text-xs font-semibold text-white bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+              <div className="text-xs font-semibold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
                 Race Complete!
               </div>
             </div>
@@ -315,7 +298,7 @@ export default function RaceController({
         <div className="text-center">
           <div className={`text-xs px-3 py-1 rounded-full border ${
             isWaitingForNewRace
-              ? "text-red-300 bg-gradient-to-r from-red-400/20 to-orange-400/20 border-red-400/30"
+              ? "text-red-600 bg-red-50 border-red-200"
               : "text-gray-600 bg-gray-100 border-gray-200"
           }`}>
             {isWaitingForNewRace
