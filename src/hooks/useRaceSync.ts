@@ -182,15 +182,24 @@ export function useRaceSync() {
         
         let hasChanges = false;
         const updatedHorses = prevHorses.map(horse => {
-          // Calculate realistic horse speed if not set
+          // Calculate realistic horse speed if not set - ENSURE ALL HORSES GET VELOCITY
           let velocity = horse.velocity;
           if (!velocity || velocity <= 0) {
             const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
             const realisticSpeed = 18.0 + (baseSpeed * 7.0);
-            // Use horse ID for consistent speed variation
-            const seedValue = horse.id ? parseInt(horse.id.slice(-4), 16) / 65536 : Math.random();
+            // Use horse ID for consistent speed variation - FALLBACK to index if no ID
+            let seedValue;
+            if (horse.id) {
+              seedValue = parseInt(horse.id.slice(-4), 16) / 65536;
+            } else {
+              // Fallback: use array index for consistent speed
+              const horseIndex = prevHorses.findIndex(h => h === horse);
+              seedValue = (horseIndex + 1) * 0.1; // 0.1, 0.2, 0.3, etc.
+            }
             const speedVariation = 0.85 + (seedValue * 0.3);
             velocity = realisticSpeed * speedVariation;
+            
+            console.log(`🏇 Horse ${horse.name || horse.id || 'Unknown'} velocity: ${velocity.toFixed(2)} m/s`);
           }
           
           const currentPosition = horse.position || 0;
@@ -198,18 +207,14 @@ export function useRaceSync() {
           // Calculate new position based on velocity and time
           const newPosition = Math.min(1200, currentPosition + (velocity * deltaTime));
           
-          // Only update if position changed significantly
-          if (Math.abs(newPosition - currentPosition) > 0.01) {
-            hasChanges = true;
-            return {
-              ...horse,
-              position: newPosition,
-              clientPosition: newPosition,
-              velocity: velocity
-            };
-          }
-          
-          return horse;
+          // ALWAYS update position and velocity to ensure movement
+          hasChanges = true;
+          return {
+            ...horse,
+            position: newPosition,
+            clientPosition: newPosition,
+            velocity: velocity
+          };
         });
         
         // Only return new array if there are actual changes
@@ -254,12 +259,21 @@ export function useRaceSync() {
       // Initialize smooth horses only once when race starts
       console.log('🏇 Initializing smooth horses for racing');
       
-      const initialHorses = raceData.horses.map((horse: any) => {
+      const initialHorses = raceData.horses.map((horse: any, index: number) => {
         const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
         const realisticSpeed = 18.0 + (baseSpeed * 7.0);
-        const seedValue = horse.id ? parseInt(horse.id.slice(-4), 16) / 65536 : Math.random();
+        // Use horse ID for consistent speed variation - FALLBACK to index
+        let seedValue;
+        if (horse.id) {
+          seedValue = parseInt(horse.id.slice(-4), 16) / 65536;
+        } else {
+          // Fallback: use array index for consistent speed
+          seedValue = (index + 1) * 0.1; // 0.1, 0.2, 0.3, etc.
+        }
         const speedVariation = 0.85 + (seedValue * 0.3);
         const velocity = realisticSpeed * speedVariation;
+        
+        console.log(`🏇 Initializing horse ${horse.name || horse.id || `Horse ${index + 1}`} with velocity: ${velocity.toFixed(2)} m/s`);
         
         return {
           ...horse,
