@@ -175,10 +175,6 @@ export type Database = {
         Args: { race_results: Json }
         Returns: undefined
       }
-      update_race_state: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
       update_race_state_high_frequency: {
         Args: Record<PropertyKey, never>
         Returns: undefined
