@@ -42,24 +42,6 @@ export default function RaceController({
     placement?: number;
   }>>([]);
 
-  // Manual race start function
-  const startNewRace = async () => {
-    if (!supabase) return;
-    
-    try {
-      console.log('🏇 Starting new race manually...');
-      const { error } = await supabase.rpc('manual_start_new_race');
-      
-      if (error) {
-        console.error('❌ Error starting new race:', error);
-      } else {
-        console.log('✅ New race started successfully!');
-      }
-    } catch (error) {
-      console.error('❌ Error calling start new race:', error);
-    }
-  };
-
   // Initialize finish line detector
   useEffect(() => {
     console.log('🏁 Initializing 3D finish line detector...');
@@ -334,7 +316,7 @@ export default function RaceController({
           <div className={`text-xs px-3 py-1 rounded-full border ${
             isWaitingForNewRace
               ? "text-red-300 bg-gradient-to-r from-red-400/20 to-orange-400/20 border-red-400/30"
-              : "text-white/70 bg-gradient-to-r from-green-400/20 to-blue-400/20 border-white/10"
+              : "text-gray-600 bg-gray-100 border-gray-200"
           }`}>
             {isWaitingForNewRace
               ? "🚫 Mid-Race Connection Blocked"
