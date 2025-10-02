@@ -88,6 +88,7 @@ export type Database = {
           race_start_time: string | null
           race_state: string
           race_timer: number | null
+          results_shown_at: string | null
           show_photo_finish: boolean | null
           show_results: boolean | null
           timer_owner: string | null
@@ -110,6 +111,7 @@ export type Database = {
           race_start_time?: string | null
           race_state?: string
           race_timer?: number | null
+          results_shown_at?: string | null
           show_photo_finish?: boolean | null
           show_results?: boolean | null
           timer_owner?: string | null
@@ -132,6 +134,7 @@ export type Database = {
           race_start_time?: string | null
           race_state?: string
           race_timer?: number | null
+          results_shown_at?: string | null
           show_photo_finish?: boolean | null
           show_results?: boolean | null
           timer_owner?: string | null
@@ -150,6 +153,10 @@ export type Database = {
         Returns: undefined
       }
       auto_restart_race: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      auto_start_new_race_after_results: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
