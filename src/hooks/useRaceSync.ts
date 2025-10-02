@@ -181,24 +181,26 @@ export function useRaceSync() {
           // Find existing smooth horse or create new one
           const existingHorse = smoothHorses.find(h => h.id === horse.id);
           
-          // Get server velocity if available, otherwise calculate from attributes
+          // Get server velocity if available, otherwise calculate realistic velocity
           let velocity = horse.velocity;
           if (!velocity) {
-            const baseSpeed = (horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2;
-            const speedVariation = 0.85 + (Math.sin(now * 0.0005 + index) * 0.15);
-            velocity = baseSpeed * speedVariation * 0.6; // Convert to realistic m/s
+            // Calculate realistic velocity matching server logic (18-23 m/s range)
+            const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
+            const realisticSpeed = 18.0 + (baseSpeed * 5.0); // Range: 18-23 m/s
+            const speedVariation = 0.85 + (Math.sin(now * 0.0003 + index) * 0.15);
+            velocity = realisticSpeed * speedVariation;
           }
           
           let clientPosition;
           let predictedPosition;
           
-          if (existingHorse && timeSinceLastUpdate < 200) { // 200ms max prediction (4x more responsive)
-            // Ultra-aggressive client-side prediction
+          if (existingHorse && timeSinceLastUpdate < 300) { // 300ms max prediction for smoother movement
+            // Gentle client-side prediction for realistic speeds
             const deltaTime = timeSinceLastUpdate / 1000; // Convert to seconds
             predictedPosition = existingHorse.clientPosition + (velocity * deltaTime);
             
-            // Much more aggressive correction towards server position
-            const correctionStrength = Math.min(timeSinceLastUpdate / 100, 0.8); // Max 80% correction, faster response
+            // Gentle correction towards server position (realistic movement)
+            const correctionStrength = Math.min(timeSinceLastUpdate / 200, 0.4); // Max 40% correction, smoother blending
             clientPosition = predictedPosition * (1 - correctionStrength) + horse.position * correctionStrength;
           } else {
             // First update or too much lag - snap to server position

@@ -152,6 +152,10 @@ export type Database = {
         }
         Returns: number
       }
+      generate_race_horses: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       start_new_race: {
         Args: Record<PropertyKey, never>
         Returns: undefined
