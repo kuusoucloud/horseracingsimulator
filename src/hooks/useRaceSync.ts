@@ -157,7 +157,7 @@ export function useRaceSync() {
     };
   }, [isConnected]);
 
-  // SINGLE ULTRA-SMOOTH VISUAL UPDATE SYSTEM
+  // OPTIMIZED VISUAL UPDATE SYSTEM - Much more efficient
   useEffect(() => {
     if (!raceData || raceData.race_state !== 'racing') {
       // Cancel any running animation
@@ -167,38 +167,58 @@ export function useRaceSync() {
       return;
     }
 
-    console.log('🏇 Starting ultra-smooth visual updates...');
+    console.log('🏇 Starting optimized visual updates...');
+    let lastUpdateTime = Date.now();
 
-    const smoothVisualUpdate = () => {
+    const optimizedVisualUpdate = () => {
+      const now = Date.now();
+      const deltaTime = (now - lastUpdateTime) / 1000; // Convert to seconds
+      
+      // Only update if enough time has passed (30fps instead of 60fps)
+      if (deltaTime < 0.033) {
+        animationFrameRef.current = requestAnimationFrame(optimizedVisualUpdate);
+        return;
+      }
+      
+      lastUpdateTime = now;
+
       setSmoothHorses(prevHorses => {
         if (prevHorses.length === 0) return prevHorses;
         
-        const now = Date.now();
-        
-        return prevHorses.map(horse => {
+        let hasChanges = false;
+        const updatedHorses = prevHorses.map(horse => {
           if (!horse.velocity || horse.velocity <= 0) return horse;
           
-          // Calculate time since last update
+          // Calculate time since server update
           const timeSinceUpdate = now - horse.lastServerUpdate;
-          const deltaTime = Math.min(timeSinceUpdate, 100) / 1000; // Max 100ms prediction
+          const predictionTime = Math.min(timeSinceUpdate, 200) / 1000; // Max 200ms prediction
           
-          // Ultra-smooth client prediction
-          const predictedPosition = Math.min(1200, horse.serverPosition + (horse.velocity * deltaTime));
+          // Smooth client prediction
+          const predictedPosition = Math.min(1200, horse.serverPosition + (horse.velocity * predictionTime));
           
-          return {
-            ...horse,
-            clientPosition: predictedPosition,
-            position: predictedPosition // This is what components use
-          };
+          // Only update if position changed significantly (reduces unnecessary renders)
+          if (Math.abs(predictedPosition - horse.position) > 0.5) {
+            hasChanges = true;
+            return {
+              ...horse,
+              clientPosition: predictedPosition,
+              position: predictedPosition
+            };
+          }
+          
+          return horse;
         });
+        
+        // Only return new array if there are actual changes
+        return hasChanges ? updatedHorses : prevHorses;
       });
       
-      // Continue the smooth update loop
-      animationFrameRef.current = requestAnimationFrame(smoothVisualUpdate);
+      // Continue the update loop
+      animationFrameRef.current = requestAnimationFrame(optimizedVisualUpdate);
     };
 
     // Start the visual update loop
-    smoothVisualUpdate();
+    optimizedVisualUpdate();
 
     return () => {
       if (animationFrameRef.current) {
@@ -207,7 +227,7 @@ export function useRaceSync() {
     };
   }, [raceData?.race_state]);
 
-  // Server sync - handles position updates from database
+  // OPTIMIZED server sync - handles position updates from database
   useEffect(() => {
     if (!raceData) return;
 
@@ -228,28 +248,29 @@ export function useRaceSync() {
           };
         }
 
-        // Calculate realistic velocity
+        // Use server velocity if available, otherwise calculate once
         let velocity = horse.velocity;
         if (!velocity) {
           const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
           const realisticSpeed = 18.0 + (baseSpeed * 5.0);
-          const speedVariation = 0.85 + (Math.sin(now * 0.0003 + index) * 0.15);
+          // Simplified speed variation - no expensive sin calculations
+          const speedVariation = 0.9 + (Math.random() * 0.2 - 0.1);
           velocity = realisticSpeed * speedVariation;
         }
         
         return {
           ...horse,
           serverPosition: horse.position,
-          clientPosition: horse.position, // Start from server position
+          clientPosition: horse.position,
           velocity: velocity,
           lastServerUpdate: now,
-          position: horse.position // Components will use the predicted position
+          position: horse.position
         };
       });
       
       setSmoothHorses(syncedHorses);
     } else {
-      // Not racing - use server positions directly
+      // Not racing - use server positions directly (no extra processing)
       const staticHorses = (raceData.horses || []).map((horse: any) => ({
         ...horse,
         serverPosition: horse.position || 0,
@@ -262,26 +283,26 @@ export function useRaceSync() {
     }
   }, [raceData]);
 
-  // Ultra-high-frequency server timer (60fps = 16ms for buttery-smooth racing)
+  // OPTIMIZED server timer - Reduced frequency for better performance
   useEffect(() => {
     if (!supabase || !isConnected) return;
 
-    console.log('⚡ Starting ultra-high-frequency race timer (60fps)...');
+    console.log('⚡ Starting optimized race timer (20fps)...');
     
     timerInterval.current = setInterval(async () => {
       try {
-        // Call high-frequency database function
+        // Call database function at reasonable frequency
         if (supabase) {
           const { error } = await supabase.rpc('update_race_state_high_frequency');
           
           if (error) {
-            console.error('❌ High-frequency update error:', error);
+            console.error('❌ Update error:', error);
           }
         }
       } catch (error) {
         console.error('❌ Timer error:', error);
       }
-    }, 16); // 16ms = 60fps server updates (buttery-smooth racing)
+    }, 50); // 50ms = 20fps server updates (still smooth but much more efficient)
 
     return () => {
       if (timerInterval.current) {
@@ -290,23 +311,19 @@ export function useRaceSync() {
     };
   }, [isConnected]);
 
-  // Helper functions for components
+  // OPTIMIZED helper functions for components
   const getCurrentHorses = useCallback(() => {
-    // ALWAYS return smooth horses with client prediction during racing
+    // Return smooth horses during racing, regular horses otherwise
     if (raceData?.race_state === 'racing' && smoothHorses.length > 0) {
-      console.log('🏇 Returning smooth horses for racing:', smoothHorses.length);
       return smoothHorses;
     }
     
-    // Return regular horses for non-racing states
-    const regularHorses = raceData?.horses || [];
-    console.log('🏇 Returning regular horses for non-racing:', regularHorses.length);
-    return regularHorses;
+    return raceData?.horses || [];
   }, [smoothHorses, raceData]);
 
   const getRaceState = useCallback(() => {
     return raceData?.race_state || 'pre-race';
-  }, [raceData]);
+  }, [raceData?.race_state]);
 
   const getTimer = useCallback(() => {
     if (!raceData) return 0;
@@ -321,22 +338,20 @@ export function useRaceSync() {
       default:
         return 0;
     }
-  }, [raceData]);
+  }, [raceData?.race_state, raceData?.pre_race_timer, raceData?.countdown_timer, raceData?.race_timer]);
 
   const getRaceResults = useCallback(() => {
     return raceData?.race_results || [];
-  }, [raceData]);
+  }, [raceData?.race_results]);
 
+  // OPTIMIZED weather conditions - cached result
   const getWeatherConditions = useCallback(() => {
     const serverWeather = raceData?.weather_conditions;
     
     // Handle different weather formats from server
     if (serverWeather && typeof serverWeather === 'object') {
-      // Check if it's the new server format with condition, humidity, temperature, windSpeed
+      // Check if it's the new server format
       if ('condition' in serverWeather && 'humidity' in serverWeather) {
-        console.log('🌤️ Converting server weather format:', serverWeather);
-        
-        // Convert server weather format to client format
         const condition = serverWeather.condition as string;
         const isRainy = condition === 'rainy' || condition === 'rain';
         const isTwilight = condition === 'twilight' || condition === 'night';
@@ -356,13 +371,11 @@ export function useRaceSync() {
       
       // Check if it's already in the correct client format
       if ('timeOfDay' in serverWeather && 'weather' in serverWeather) {
-        console.log('✅ Using existing client weather format:', serverWeather);
         return serverWeather as any;
       }
     }
     
     // Fallback to default conditions
-    console.log('⚠️ Using default weather conditions');
     return {
       timeOfDay: "day" as const,
       weather: "clear" as const,
@@ -372,19 +385,19 @@ export function useRaceSync() {
       trackColor: "#8B4513",
       grassColor: "#32cd32"
     };
-  }, [raceData]);
+  }, [raceData?.weather_conditions]);
 
   const shouldShowPhotoFinish = useCallback(() => {
     return raceData?.show_photo_finish || false;
-  }, [raceData]);
+  }, [raceData?.show_photo_finish]);
 
   const shouldShowResults = useCallback(() => {
     return raceData?.show_results || false;
-  }, [raceData]);
+  }, [raceData?.show_results]);
 
   const getPhotoFinishResults = useCallback(() => {
     return raceData?.photo_finish_results || [];
-  }, [raceData]);
+  }, [raceData?.photo_finish_results]);
 
   return {
     // Core state
