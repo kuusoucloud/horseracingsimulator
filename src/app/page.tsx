@@ -152,7 +152,7 @@ export default function Home() {
       console.log('🏇 Smooth Horse Position Data:', {
         raceState,
         raceTimer,
-        sampleHorses: horsesWithElo.slice(0, 3).map(h => ({
+        sampleHorses: horsesWithElo.slice(0, 3).map((h: Horse) => ({
           id: h.id,
           name: h.name,
           position: h.position || 0,
