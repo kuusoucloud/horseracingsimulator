@@ -131,7 +131,7 @@ export default function Home() {
       
       // Wait a bit for initial data to load
       setTimeout(async () => {
-        if (horses.length === 0 && raceState === 'pre-race') {
+        if (horses.length === 0 && raceState === 'pre-race' && supabase) {
           console.log('🏇 No horses detected, initializing race system...');
           try {
             const { data, error } = await supabase.functions.invoke('supabase-functions-race-initialization', {
@@ -330,7 +330,7 @@ export default function Home() {
           </div>
           
           {/* Emergency initialization button */}
-          {horses.length === 0 && (
+          {horses.length === 0 && supabase && (
             <button
               onClick={async () => {
                 console.log('🏇 Manual race initialization...');
