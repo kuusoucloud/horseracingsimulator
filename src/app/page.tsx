@@ -113,7 +113,7 @@ export default function Home() {
   }, [horses, supabase, lastFetchedHorses]);
 
   // Merge database ELO data with race horses
-  const horsesWithElo = horses.map(horse => ({
+  const horsesWithElo = horses.map((horse: Horse) => ({
     ...horse,
     elo: horseEloData[horse.name]?.elo || 500, // Use database ELO or default 500
     totalRaces: horseEloData[horse.name]?.total_races || 0,
