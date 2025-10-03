@@ -124,7 +124,34 @@ export default function Home() {
   // Handle client-side hydration
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    
+    // Initialize race system if no horses are loading
+    const initializeIfNeeded = async () => {
+      if (!supabase || !isConnected) return;
+      
+      // Wait a bit for initial data to load
+      setTimeout(async () => {
+        if (horses.length === 0 && raceState === 'pre-race') {
+          console.log('🏇 No horses detected, initializing race system...');
+          try {
+            const { data, error } = await supabase.functions.invoke('supabase-functions-race-initialization', {
+              body: { action: 'initialize_system' }
+            });
+            
+            if (error) {
+              console.error('❌ Race initialization error:', error);
+            } else {
+              console.log('✅ Race system initialized:', data);
+            }
+          } catch (err) {
+            console.error('❌ Race initialization failed:', err);
+          }
+        }
+      }, 3000); // Wait 3 seconds for initial load
+    };
+    
+    initializeIfNeeded();
+  }, [isConnected, horses.length, raceState, supabase]);
 
   // Debug weather conditions
   useEffect(() => {
@@ -290,15 +317,45 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 p-4">
       {/* Connection status */}
       <div className="max-w-7xl mx-auto mb-4">
-        <div className={`px-4 py-2 rounded-lg text-center text-sm font-medium ${
-          isConnected 
-            ? 'bg-green-600 text-white' 
-            : 'bg-red-600 text-white'
-        }`}>
-          {isConnected 
-            ? '🟢 Connected to Race Server' 
-            : '🔴 Disconnected from Race Server'
-          }
+        <div className="flex items-center justify-between">
+          <div className={`px-4 py-2 rounded-lg text-center text-sm font-medium flex-1 ${
+            isConnected 
+              ? 'bg-green-600 text-white' 
+              : 'bg-red-600 text-white'
+          }`}>
+            {isConnected 
+              ? '🟢 Connected to Race Server' 
+              : '🔴 Disconnected from Race Server'
+            }
+          </div>
+          
+          {/* Emergency initialization button */}
+          {horses.length === 0 && (
+            <button
+              onClick={async () => {
+                console.log('🏇 Manual race initialization...');
+                try {
+                  const { data, error } = await supabase.functions.invoke('supabase-functions-race-initialization', {
+                    body: { action: 'initialize_system' }
+                  });
+                  
+                  if (error) {
+                    console.error('❌ Manual initialization error:', error);
+                    alert(`Initialization failed: ${error.message}`);
+                  } else {
+                    console.log('✅ Manual initialization success:', data);
+                    alert('Race system initialized! Horses should appear shortly.');
+                  }
+                } catch (err) {
+                  console.error('❌ Manual initialization failed:', err);
+                  alert(`Initialization failed: ${err.message}`);
+                }
+              }}
+              className="ml-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
+            >
+              🔧 Initialize Races
+            </button>
+          )}
         </div>
       </div>
       
