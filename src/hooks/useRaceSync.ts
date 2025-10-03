@@ -329,7 +329,7 @@ export function useRaceSync() {
         predictedPosition: horse.position || 0
       }));
       setSmoothHorses(staticHorses);
-    } else if (raceData.race_state === 'racing' && smoothHorses.length === 0) {
+    } else if (raceData.race_state === 'racing' && smoothHorses.length === 0 && raceData.horses) {
       const initialHorses = raceData.horses.map((horse: any, index: number) => {
         const baseSpeed = ((horse.speed || 50) * 0.8 + (horse.acceleration || 50) * 0.2) / 100.0;
         const horseElo = horse.elo || 500;
