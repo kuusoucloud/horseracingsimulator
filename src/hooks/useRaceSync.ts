@@ -5,20 +5,18 @@ import { Horse } from '@/types/horse';
 export type RaceState = 'pre-race' | 'countdown' | 'racing' | 'finished';
 
 interface RaceData {
-  id?: string;
+  id: string;
   race_state: RaceState;
-  horses: Horse[];
-  race_progress: Record<string, any>;
   pre_race_timer: number;
-  countdown_timer?: number;
-  race_timer?: number;
-  race_start_time?: string;
-  race_results: any[];
+  countdown_timer: number;
+  race_timer: number;
+  results_countdown: number; // Add results_countdown field
   show_photo_finish?: boolean;
   show_results?: boolean;
-  photo_finish_results?: any[];
-  weather_conditions?: any;
-  timer_owner?: string;
+  race_results?: any;
+  photo_finish_results?: any;
+  created_at: string;
+  updated_at?: string;
 }
 
 interface SmoothHorse extends Horse {
@@ -106,18 +104,16 @@ export function useRaceSync() {
               const raceDataFromDB: RaceData = {
                 id: raceData.id,
                 race_state: raceData.race_state as RaceState,
-                horses: (raceData.horses as any) || [],
-                race_progress: (raceData.race_progress as any) || {},
                 pre_race_timer: raceData.pre_race_timer || 0,
-                countdown_timer: raceData.countdown_timer || undefined,
-                race_timer: raceData.race_timer || undefined,
-                race_start_time: raceData.race_start_time || undefined,
-                race_results: (raceData.race_results as any) || [],
+                countdown_timer: raceData.countdown_timer || 0,
+                race_timer: raceData.race_timer || 0,
+                results_countdown: raceData.results_countdown || 0,
                 show_photo_finish: raceData.show_photo_finish || false,
                 show_results: raceData.show_results || false,
+                race_results: (raceData.race_results as any) || [],
                 photo_finish_results: (raceData.photo_finish_results as any) || [],
-                weather_conditions: (raceData.weather_conditions as any) || undefined,
-                timer_owner: raceData.timer_owner || undefined,
+                created_at: raceData.created_at || '',
+                updated_at: raceData.updated_at || undefined,
               };
               setRaceData(raceDataFromDB);
               setIsWaitingForNewRace(false);
@@ -204,18 +200,16 @@ export function useRaceSync() {
             const raceDataFromDB: RaceData = {
               id: dbRow.id,
               race_state: dbRow.race_state as RaceState,
-              horses: dbRow.horses || [],
-              race_progress: dbRow.race_progress || {},
               pre_race_timer: dbRow.pre_race_timer || 0,
-              countdown_timer: dbRow.countdown_timer || undefined,
-              race_timer: dbRow.race_timer || undefined,
-              race_start_time: dbRow.race_start_time || undefined,
-              race_results: dbRow.race_results || [],
+              countdown_timer: dbRow.countdown_timer || 0,
+              race_timer: dbRow.race_timer || 0,
+              results_countdown: dbRow.results_countdown || 0,
               show_photo_finish: dbRow.show_photo_finish || false,
               show_results: dbRow.show_results || false,
+              race_results: dbRow.race_results || [],
               photo_finish_results: dbRow.photo_finish_results || [],
-              weather_conditions: dbRow.weather_conditions || undefined,
-              timer_owner: dbRow.timer_owner || undefined,
+              created_at: dbRow.created_at || '',
+              updated_at: dbRow.updated_at || undefined,
             };
             
             // HANDLE MID-RACE CONNECTION: Use ref to get current waiting state
