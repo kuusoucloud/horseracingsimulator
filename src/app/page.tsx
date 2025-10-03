@@ -333,6 +333,7 @@ export default function Home() {
           {horses.length === 0 && supabase && (
             <button
               onClick={async () => {
+                if (!supabase) return;
                 console.log('🏇 Manual race initialization...');
                 try {
                   const { data, error } = await supabase.functions.invoke('supabase-functions-race-initialization', {
