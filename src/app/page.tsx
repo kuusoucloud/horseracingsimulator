@@ -349,7 +349,7 @@ export default function Home() {
                   }
                 } catch (err) {
                   console.error('❌ Manual initialization failed:', err);
-                  alert(`Initialization failed: ${err.message}`);
+                  alert(`Initialization failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
                 }
               }}
               className="ml-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
