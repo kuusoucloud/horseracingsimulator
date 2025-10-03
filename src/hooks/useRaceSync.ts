@@ -11,10 +11,12 @@ interface RaceData {
   countdown_timer: number;
   race_timer: number;
   results_countdown: number; // Add results_countdown field
+  horses?: Horse[]; // Add horses field
   show_photo_finish?: boolean;
   show_results?: boolean;
   race_results?: any;
   photo_finish_results?: any;
+  weather_conditions?: any; // Add weather_conditions field
   created_at: string;
   updated_at?: string;
 }
