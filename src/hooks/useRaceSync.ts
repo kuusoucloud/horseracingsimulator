@@ -81,8 +81,6 @@ export function useRaceSync() {
               countdown_timer,
               race_timer,
               results_countdown,
-              weather_condition,
-              time_of_day,
               show_photo_finish,
               show_results,
               race_results,
