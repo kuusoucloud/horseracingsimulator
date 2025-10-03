@@ -74,10 +74,10 @@ Deno.serve(async (req) => {
         
         const horsesToInsert = initialHorses.map(horse => ({
           name: horse.name,
-          elo: horse.elo,
+          elo: Math.round(horse.elo),
           total_races: 0,
           wins: 0,
-          recent_form: []
+          recent_form: [] as number[]
         }));
 
         const { error: insertError } = await supabase
