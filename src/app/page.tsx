@@ -138,7 +138,7 @@ export default function Home() {
   }, [serverWeatherConditions]);
 
   // Convert horses array to display format - horses already have smooth positions!
-  const displayProgress = horsesWithElo.map(horse => ({
+  const displayProgress = horsesWithElo.map((horse: Horse) => ({
     id: horse.id,
     name: horse.name,
     position: horse.position || 0, // This is now smooth position during racing!
