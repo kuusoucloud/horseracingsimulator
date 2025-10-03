@@ -72,7 +72,7 @@ export default function Home() {
       if (!supabase || horses.length === 0) return;
       
       // Create a stable hash of horse names to prevent unnecessary refetches
-      const horseNamesHash = horses.map(h => h.name).sort().join('|');
+      const horseNamesHash = horses.map((h: Horse) => h.name).sort().join('|');
       
       // Only fetch if horses actually changed
       if (horseNamesHash === lastFetchedHorses) {
@@ -80,7 +80,7 @@ export default function Home() {
       }
       
       try {
-        const horseNames = horses.map(h => h.name);
+        const horseNames = horses.map((h: Horse) => h.name);
         console.log('🏇 Fetching ELO data for horses:', horseNames);
         
         const { data: dbHorses, error } = await supabase
